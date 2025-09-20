@@ -1,0 +1,64 @@
+# robots.txt — Allow only recommended crawlers
+
+# Block all crawlers by default
+User-agent: *
+Disallow: /
+
+# Allow Googlebot (Google Search)
+User-agent: Googlebot
+Allow: /
+
+# Allow Googlebot-Image (Google Images)
+User-agent: Googlebot-Image
+Allow: /
+
+# Allow Googlebot-News (Google News)
+User-agent: Googlebot-News
+Allow: /
+
+# Allow Googlebot-Video (Google Video Search)
+User-agent: Googlebot-Video
+Allow: /
+
+# Allow Bingbot (Microsoft Bing)
+User-agent: Bingbot
+Allow: /
+
+# Allow Slurp (Yahoo Search — now powered by Bing, but still used)
+User-agent: Slurp
+Allow: /
+
+# Allow DuckDuckBot (DuckDuckGo)
+User-agent: DuckDuckBot
+Allow: /
+
+# Allow Baiduspider (Baidu — if targeting Chinese audience)
+User-agent: Baiduspider
+Allow: /
+
+# Allow YandexBot (Yandex — if targeting Russian audience)
+User-agent: YandexBot
+Allow: /
+
+# Allow Applebot (Apple — for Siri, Spotlight Suggestions)
+User-agent: Applebot
+Allow: /
+
+# Allow CCBot (Common Crawl — non-commercial, research-oriented)
+User-agent: CCBot
+Allow: /
+
+# Allow FacebookExternalHit (for link previews on Facebook)
+User-agent: FacebookExternalHit
+Allow: /
+
+# Allow Twitterbot (for link previews on Twitter/X)
+User-agent: Twitterbot
+Allow: /
+
+# Optional: Allow LinkedInBot (for LinkedIn link previews)
+User-agent: LinkedInBot
+Allow: /
+
+# Sitemap (recommended for all)
+Sitemap: https://accessph.net/sitemap.xml

@@ -51,7 +51,7 @@ $app->get('/', function (Request $request, Response $response) {
     );
     return $response;
 });
-/*
+
 $app->get('/article/{slug}', function (Request $request, Response $response, $args) {
     $slug = $args['slug'];
     $article = $this->get('storageService')->getArticleBySlug($slug);
@@ -69,7 +69,7 @@ $app->get('/article/{slug}', function (Request $request, Response $response, $ar
     );
     return $response;
 });
-
+/*
 $app->get('/crawl', function (Request $request, Response $response) {
     $result = $this->get('crawlerService')->crawlAllSources();
 
@@ -80,5 +80,53 @@ $app->get('/crawl', function (Request $request, Response $response) {
     ]));
     return $response->withHeader('Content-Type', 'application/json');
 });*/
+
+// Sitemap.xml endpoint
+$app->get('/sitemap.xml', function (Request $request, Response $response) {
+    // Get the latest 60 articles
+    $articles = $this->get('storageService')->getRecentArticles(60);
+    
+    // Get base URL from request
+    $uri = $request->getUri();
+    $baseUrl = $uri->getScheme() . '://' . $uri->getHost();
+    if (($uri->getScheme() === 'https' && $uri->getPort() !== 443) || 
+        ($uri->getScheme() === 'http' && $uri->getPort() !== 80)) {
+        $baseUrl .= ':' . $uri->getPort();
+    }
+    $baseUrl .= '/';
+    
+    // Generate sitemap XML
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+    
+    // Add homepage
+    $xml .= '  <url>' . "\n";
+    $xml .= '    <loc>' . htmlspecialchars($baseUrl) . '</loc>' . "\n";
+    $xml .= '    <changefreq>daily</changefreq>' . "\n";
+    $xml .= '    <priority>1.0</priority>' . "\n";
+    $xml .= '  </url>' . "\n";
+    
+    // Add each article
+    foreach ($articles as $article) {
+        $xml .= '  <url>' . "\n";
+        $xml .= '    <loc>' . htmlspecialchars($baseUrl . 'article/' . $article['slug']) . '</loc>' . "\n";
+        
+        // Format the published date to W3C format
+        $publishedDate = new DateTime($article['published_at']);
+        $xml .= '    <lastmod>' . $publishedDate->format('c') . '</lastmod>' . "\n";
+        
+        $xml .= '    <changefreq>weekly</changefreq>' . "\n";
+        $xml .= '    <priority>0.8</priority>' . "\n";
+        $xml .= '  </url>' . "\n";
+    }
+    
+    $xml .= '</urlset>';
+    
+    // Set appropriate headers
+    $response = $response->withHeader('Content-Type', 'application/xml; charset=utf-8');
+    $response->getBody()->write($xml);
+    
+    return $response;
+});
 
 $app->run();
