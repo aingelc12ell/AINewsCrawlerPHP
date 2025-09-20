@@ -131,5 +131,32 @@ slug: "article-title-slug"
 Full article content here...
 ```
 
+## Author notes
+This project has been generated from Qwen with modifications from Claude and JetBrain's Junie.
+Some changes were made to fit trivial details.
+
+## AI post-conversation Prompt
+"Using the Slim PHP Framework, develop a comprehensive, production-ready news aggregator website 
+focused on Artificial Intelligence. The system must crawl articles from a curated list of AI news 
+sources—including The Register (specifically from https://www.theregister.com/software/ai_ml/, 
+where sample content includes headlines like “AIs have a favorite number, and it's not 42” 
+published on “30 Jun 2025”)—and store each article as a uniquely named markdown file (YYYY-MM-DD-slug.md) 
+with YAML front matter containing title, URL, publication date, source, summary, and image URL.
+
+Implement robust deduplication (based on URL), automatic cleanup of articles older than 30 days, 
+and a responsive UI using Twig that displays articles in 240px-wide cards (max 12 per row) with 
+optional list view. Cards must intelligently adapt: if no summary is available (like The 
+Register’s sample article), the title should fill the entire card in larger font; if an image is 
+available, it should be used as a background with readability overlays.
+
+Provide a CLI script to trigger crawling manually or via cron, with comprehensive logging, 
+error handling (bypass failing sources), and built-in rate limiting to avoid 429 errors 
+(using delays, jitter, and Retry-After header respect). Support dark/light themes, pagination 
+(20 articles per page default), and user-configurable items per page. Ensure all CSS is external, 
+and selectors support wildcards/partial matches for resilient scraping.
+
+The final deliverable should be a maintainable, well-documented codebase ready for deployment, 
+with all components (models, services, controllers, templates, CLI) fully integrated and tested. "
+
 ## License
 MIT License
