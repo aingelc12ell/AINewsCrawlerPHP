@@ -9,6 +9,12 @@
             <p><a href="/crawl">Click here to crawl now</a> or run <code>php cli/crawl.php</code> from command line.</p>
         </div>
     {% else %}
+        {% if search_query is defined and search_query|trim != '' %}
+            <div class="search-results-header">
+                <h2>Search Results for <span class="search-query">"{{ search_query }}"</span></h2>
+                <p class="result-count">Found {{ pagination.total }} article{{ pagination.total != 1 ? 's' : '' }}</p>
+            </div>
+        {% endif %}
         <div class="view-toggle-container">
             <div class="view-toggle">
                 <button id="gridViewBtn" class="view-btn">Grid View</button>

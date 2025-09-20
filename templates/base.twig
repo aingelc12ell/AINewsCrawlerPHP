@@ -10,8 +10,18 @@
 <button class="theme-toggle" id="themeToggle">Toggle Theme</button>
 
 <header>
-    <h1><a href="https://systemsbybit.com/">SystemsByBit: AI News</a></h1>
+    <h1><a href="{{  baseUrl }}">SystemsByBit: AI News</a></h1>
     <p class="subtitle">Aggregating AI news from trusted sources, all in one place</p>
+    <!-- Search Form -->
+    <form method="GET" action="/" class="search-form">
+        <input type="text" name="q" placeholder="Search articles..."
+               value="{{ search_query ?? '' }}"
+               class="search-input">
+        <button type="submit" class="search-btn">Search</button>
+        {% if search_query is defined and search_query|trim != '' %}
+            <a href="/" class="clear-search">Clear Search</a>
+        {% endif %}
+    </form>
 </header>
 
 <main>

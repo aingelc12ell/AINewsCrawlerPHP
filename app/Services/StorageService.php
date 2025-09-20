@@ -154,4 +154,116 @@ class StorageService
             error_log("Cleaned up {$deletedCount} old articles");
         }
     }
+    public function searchArticles(string $query, int $page = 1, int $perPage = 20): array
+    {
+        if (empty(trim($query))) {
+            return $this->getPaginatedArticles($page, $perPage);
+        }
+
+        $this->cleanupOldArticles();
+
+        $files = glob($this->storagePath . '/*.md');
+        $articles = [];
+        $query = strtolower(trim($query));
+
+        foreach ($files as $file) {
+            $article = Article::fromMarkdownFile($file);
+            if ($article) {
+                // Search in title, summary, and content
+                $titleMatch = stripos($article->title, $query) !== false;
+                $summaryMatch = !empty($article->summary) && stripos($article->summary, $query) !== false;
+                $contentMatch = !empty($article->content) && stripos($article->content, $query) !== false;
+                $sourceMatch = stripos($article->source, $query) !== false;
+
+                if ($titleMatch || $summaryMatch || $contentMatch || $sourceMatch) {
+                    $articles[] = [
+                        'title' => $article->title,
+                        'url' => $article->url,
+                        'source' => $article->source,
+                        'published_at' => $article->publishedAt,
+                        'summary' => $article->summary,
+                        'slug' => $article->slug,
+                        'image_url' => $article->imageUrl ?? '',
+                        'filename' => basename($file),
+                        'relevance_score' => $this->calculateRelevanceScore($article, $query)
+                    ];
+                }
+            }
+        }
+
+        // Sort by relevance score (highest first)
+        usort($articles, function ($a, $b) {
+            return $b['relevance_score'] - $a['relevance_score'];
+        });
+
+        // Calculate pagination
+        $total = count($articles);
+        $pages = ceil($total / $perPage);
+        $page = max(1, min($page, $pages));
+        $offset = ($page - 1) * $perPage;
+
+        $paginatedArticles = array_slice($articles, $offset, $perPage);
+
+        return [
+            'articles' => $paginatedArticles,
+            'total' => $total,
+            'pages' => $pages,
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'has_next' => $page < $pages,
+            'has_prev' => $page > 1,
+            'next_page' => $page < $pages ? $page + 1 : null,
+            'prev_page' => $page > 1 ? $page - 1 : null,
+            'query' => $query
+        ];
+    }
+
+    private function calculateRelevanceScore(Article $article, string $query): int
+    {
+        $score = 0;
+        $query = strtolower($query);
+        $title = strtolower($article->title);
+        $summary = !empty($article->summary) ? strtolower($article->summary) : '';
+        $content = !empty($article->content) ? strtolower($article->content) : '';
+        $source = strtolower($article->source);
+
+        // Title match is most important
+        if (stripos($article->title, $query) !== false) {
+            $score += 100;
+
+            // Bonus for exact word match or beginning of title
+            if ($title === $query || strpos($title, $query) === 0) {
+                $score += 50;
+            }
+        }
+
+        // Summary match
+        if (!empty($summary) && stripos($summary, $query) !== false) {
+            $score += 50;
+        }
+
+        // Content match
+        if (!empty($content) && stripos($content, $query) !== false) {
+            $score += 30;
+        }
+
+        // Source match
+        if (stripos($source, $query) !== false) {
+            $score += 20;
+        }
+
+        // Bonus for recent articles
+        $publishedDate = new \DateTime($article->publishedAt);
+        $now = new \DateTime();
+        $interval = $now->diff($publishedDate);
+        $daysAgo = $interval->days;
+
+        if ($daysAgo <= 7) {
+            $score += 30; // Very recent
+        } elseif ($daysAgo <= 30) {
+            $score += 15; // Recent
+        }
+
+        return $score;
+    }
 }

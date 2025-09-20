@@ -116,4 +116,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setupViewToggle();
     setupPerPageHandler();
     setupCardBackgrounds();
+    // Focus search input if search query exists
+    const searchInput = document.querySelector('.search-input');
+    if (searchInput && window.location.search.includes('q=')) {
+        searchInput.focus();
+    }
 });
