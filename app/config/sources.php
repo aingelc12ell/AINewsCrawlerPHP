@@ -12,7 +12,7 @@ return [
             'summary'     => 'h3 a',
             'date'        => 'time',
             'date_format' => 'Y-m-d\TH:i:sP',
-            'image'       => 'figure img',
+            'image'       => 'img',
         ],
     ],
     [
@@ -40,7 +40,7 @@ return [
             'summary'     => 'div[data-testid="SummaryItemExcerpt"]',
             'date'        => 'time',
             'date_format' => 'Y-m-d\TH:i:sP',
-            'image'       => 'picture img',
+            'image'       => 'img',
         ],
     ],
     [
@@ -83,6 +83,7 @@ return [
             'summary'     => 'span[class*="c-listingDefault_description"]',
             'date'        => 'time',
             'date_format' => 'Y-m-d\TH:i:sP',
+            'image'       => 'img',
             'count'       => 30,
         ],
     ],
@@ -97,6 +98,7 @@ return [
             'summary'     => 'h3 p',
             'date'        => 'div[class="social-date"] span',
             'date_format' => 'd M Y',
+            'image'       => 'img',
         ],
     ],
     [
@@ -110,6 +112,7 @@ return [
             'summary'     => 'div[class*="excerpt"] p',
             'date'        => 'span[class="elementor-post-date"]',
             'date_format' => 'd/m/Y',
+            'image'       => 'img',
         ],
     ],
     [

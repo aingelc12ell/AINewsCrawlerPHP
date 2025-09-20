@@ -5,3 +5,4 @@
 /storage/cache/
 .env
 composer.lock
+/ssl

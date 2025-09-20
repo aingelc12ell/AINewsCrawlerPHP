@@ -51,7 +51,7 @@ $app->get('/', function (Request $request, Response $response) {
     );
     return $response;
 });
-
+/*
 $app->get('/article/{slug}', function (Request $request, Response $response, $args) {
     $slug = $args['slug'];
     $article = $this->get('storageService')->getArticleBySlug($slug);
@@ -70,7 +70,7 @@ $app->get('/article/{slug}', function (Request $request, Response $response, $ar
     return $response;
 });
 
-/*$app->get('/crawl', function (Request $request, Response $response) {
+$app->get('/crawl', function (Request $request, Response $response) {
     $result = $this->get('crawlerService')->crawlAllSources();
 
     $response->getBody()->write(json_encode([
