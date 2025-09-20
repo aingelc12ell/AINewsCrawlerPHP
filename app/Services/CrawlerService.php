@@ -15,9 +15,17 @@ class CrawlerService
     private $sources;
     private $storageService;
     private $maxArticlesPerSource;
+    private $requestCount = 0;
+    private $requestStartTime;
+    private $maxRequestsPerMinute;
+    private $consecutiveFailures = 0;
+    private $maxConsecutiveFailures = 3;
 
     public function __construct()
     {
+        $this->maxRequestsPerMinute = intval($_ENV['MAX_REQUESTS_PER_MINUTE'] ?? 30);
+        $this->requestStartTime = microtime(true);
+
         $config = [
             'timeout' => 15,
             'connect_timeout' => 10,
@@ -27,13 +35,12 @@ class CrawlerService
         ];
 
         // SSL certificate verification configuration
-        $sslVerify = $_ENV['SSL_VERIFY'] ?? 'false';
+        $sslVerify = $_ENV['SSL_VERIFY'] ?? 'true';
 
         if ($sslVerify === 'false' || $sslVerify === false || $sslVerify === '0') {
             $config['verify'] = false;
             error_log("WARNING: SSL certificate verification is disabled");
         } elseif ($sslVerify !== 'true' && file_exists($sslVerify)) {
-            // Use custom CA bundle file
             $config['verify'] = $sslVerify;
             error_log("Using custom CA bundle: " . $sslVerify);
         }
@@ -42,6 +49,29 @@ class CrawlerService
 
         $this->sources = require __DIR__ . '/../config/sources.php';
         $this->maxArticlesPerSource = intval($_ENV['MAX_ARTICLES_PER_SOURCE'] ?? 10);
+    }
+
+    private function enforceRateLimit() {
+        $currentTime = microtime(true);
+        $elapsedTime = $currentTime - $this->requestStartTime;
+
+        // If we've made too many requests in the last minute
+        if ($this->requestCount >= $this->maxRequestsPerMinute && $elapsedTime < 60) {
+            $sleepTime = 60 - $elapsedTime;
+            echo "  ⏸️  Rate limit approaching - pausing for " . round($sleepTime, 1) . " seconds...\n";
+            sleep($sleepTime);
+
+            // Reset counters
+            $this->requestCount = 0;
+            $this->requestStartTime = microtime(true);
+        }
+
+        // Increment request counter
+        $this->requestCount++;
+    }
+
+    private function applyDelay($delayMicroseconds) {
+        $this->applyRandomizedDelay($delayMicroseconds);
     }
 
     public function setCrawlerDependencies($storageService)
@@ -71,6 +101,14 @@ class CrawlerService
                 $stats['total_saved'] += $sourceStats['saved'];
 
                 echo "Completed {$source['name']}: {$sourceStats['saved']} articles saved ({$sourceStats['errors']} errors)\n\n";
+
+                // Apply delay between sources
+                $delayBetweenSources = intval($_ENV['CRAWL_DELAY_BETWEEN_SOURCES'] ?? 3000000);
+                if ($delayBetweenSources > 0) {
+                    echo "  ⏳ Waiting " . ($delayBetweenSources / 1000000) . " seconds before next source...\n";
+                    $this->applyRandomizedDelay($delayBetweenSources);
+                }
+
             } catch (Exception $e) {
                 // Log the error but continue with next source
                 $errorStats = [
@@ -122,9 +160,25 @@ class CrawlerService
 
             echo "  Fetching: {$url}\n";
 
+            // Enforce rate limiting
+            $this->enforceRateLimit();
+
             // Make HTTP request with error handling
             try {
                 $response = $this->httpClient->get($url);
+
+                // Check for 429 Too Many Requests
+                if ($response->getStatusCode() == 429) {
+                    // Extract retry-after header if available
+                    $retryAfter = $response->getHeader('Retry-After');
+                    $waitTime = !empty($retryAfter) ? (int)$retryAfter[0] : 60;
+
+                    echo "  ⚠️  429 Too Many Requests - waiting {$waitTime} seconds...\n";
+                    sleep($waitTime);
+
+                    // Retry the request
+                    $response = $this->httpClient->get($url);
+                }
 
                 // Check if response is successful
                 if ($response->getStatusCode() !== 200) {
@@ -138,11 +192,37 @@ class CrawlerService
                 }
 
             } catch (RequestException $e) {
-                // Handle SSL certificate error specifically
-                if (strpos($e->getMessage(), 'SSL certificate problem') !== false) {
-                    throw new Exception("SSL Certificate Error: " . $e->getMessage() . ". Check your SSL_VERIFY setting in .env file.");
+                // Handle 429 errors specifically
+                if ($e->getCode() == 429 || strpos($e->getMessage(), '429') !== false) {
+                    echo "  ⚠️  429 Too Many Requests error detected\n";
+
+                    // Extract retry-after from exception if possible
+                    $waitTime = 60; // Default wait time
+
+                    if (method_exists($e, 'getResponse') && $e->getResponse()) {
+                        $retryAfter = $e->getResponse()->getHeader('Retry-After');
+                        if (!empty($retryAfter)) {
+                            $waitTime = (int)$retryAfter[0];
+                        }
+                    }
+
+                    echo "  ⏳ Waiting {$waitTime} seconds before retrying...\n";
+                    $this->applyRandomizedDelay($waitTime);
+
+                    // Retry once
+                    try {
+                        $response = $this->httpClient->get($url);
+                        $html = (string) $response->getBody();
+                    } catch (Exception $retryException) {
+                        throw new Exception("Retry failed: " . $retryException->getMessage());
+                    }
                 }
-                throw new Exception("HTTP request failed: " . $e->getMessage());
+                // Handle SSL certificate error specifically
+                elseif (strpos($e->getMessage(), 'SSL certificate problem') !== false) {
+                    throw new Exception("SSL Certificate Error: " . $e->getMessage() . ". Check your SSL_VERIFY setting in .env file.");
+                } else {
+                    throw new Exception("HTTP request failed: " . $e->getMessage());
+                }
             } catch (Exception $e) {
                 throw new Exception("Failed to fetch page: " . $e->getMessage());
             }
@@ -164,7 +244,7 @@ class CrawlerService
             }
 
             // Limit the number of articles to process
-            $articleCount = min($articleNodes->count(), $this->maxArticlesPerSource);
+            $articleCount = min($articleNodes->count(), intval($source['selectors']['count'] ?? $this->maxArticlesPerSource));
 
             echo "  Found {$articleNodes->count()} articles, processing {$articleCount}...\n";
 
@@ -184,7 +264,7 @@ class CrawlerService
                             echo "  ℹ Skipped (duplicate): " . substr($article->title, 0, 50) . (strlen($article->title) > 50 ? "..." : "") . "\n";
                         }
                     } else {
-                        echo "  ℹ Skipped (missing required data)\n"; # . print_r($articleNodes,true);
+                        echo "  ℹ Skipped (missing required data)\n";
                     }
                 } catch (Exception $e) {
                     $stats['errors']++;
@@ -192,8 +272,12 @@ class CrawlerService
                     error_log("Error processing article from {$source['name']}: " . $e->getMessage());
                 }
 
-                // Be respectful - add a small delay between processing articles
-                usleep(intval($_ENV['CRAWL_DELAY_BETWEEN_ARTICLES'] ?? 200000)); // Default 0.2 seconds
+                // Apply delay between articles
+                $delayBetweenArticles = intval($_ENV['CRAWL_DELAY_BETWEEN_ARTICLES'] ?? 500000);
+                $this->applyDelay($delayBetweenArticles);
+
+                // Enforce rate limiting
+                $this->enforceRateLimit();
             }
 
         } catch (Exception $e) {
@@ -643,5 +727,27 @@ class CrawlerService
             // Return empty crawler if selector fails
             return new Crawler();
         }
+    }
+    private function applyRandomizedDelay($baseDelayMicroseconds, $jitterPercentage = 0.3) {
+        if ($baseDelayMicroseconds > 0) {
+            // Add jitter (random variation) to avoid detectable patterns
+            $jitter = $baseDelayMicroseconds * $jitterPercentage;
+            $randomDelay = $baseDelayMicroseconds + rand(-$jitter, $jitter);
+            $randomDelay = max(0, $randomDelay); // Ensure delay is not negative
+
+            usleep((int)$randomDelay);
+        }
+    }
+    private function handleSourceFailure($sourceName, $errorMessage) {
+        $this->consecutiveFailures++;
+
+        if ($this->consecutiveFailures >= $this->maxConsecutiveFailures) {
+            $cooldownTime = 5 * 60; // 5 minutes cooldown
+            echo "  🚨 Too many consecutive failures. Cooling down for {$cooldownTime} seconds...\n";
+            sleep($cooldownTime);
+            $this->consecutiveFailures = 0; // Reset after cooldown
+        }
+
+        throw new Exception("Source {$sourceName} failed: {$errorMessage}");
     }
 }

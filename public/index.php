@@ -70,7 +70,7 @@ $app->get('/article/{slug}', function (Request $request, Response $response, $ar
     return $response;
 });
 
-$app->get('/crawl', function (Request $request, Response $response) {
+/*$app->get('/crawl', function (Request $request, Response $response) {
     $result = $this->get('crawlerService')->crawlAllSources();
 
     $response->getBody()->write(json_encode([
@@ -79,6 +79,6 @@ $app->get('/crawl', function (Request $request, Response $response) {
         'stats' => $result
     ]));
     return $response->withHeader('Content-Type', 'application/json');
-});
+});*/
 
 $app->run();

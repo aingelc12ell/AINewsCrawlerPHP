@@ -32,6 +32,7 @@ class CrawlCommand
         echo "=========================================\n";
         echo "Starting at: {$date}\n";
         echo "Max articles per source: " . ($_ENV['MAX_ARTICLES_PER_SOURCE'] ?? 10) . "\n";
+        echo "Rate limit: " . ($_ENV['MAX_REQUESTS_PER_MINUTE'] ?? 30) . " requests per minute\n";
         echo "Storage path: " . ($_ENV['STORAGE_PATH'] ?? './storage/articles') . "\n";
         echo "-----------------------------------------\n\n";
 

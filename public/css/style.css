@@ -52,13 +52,13 @@ body {
 }
 
 header {
-    background-color: var(--header-bg);
+    /*background-color: var(--header-bg);
     padding: 25px;
     border-radius: 8px;
     margin-bottom: 25px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     transition: background-color 0.3s ease;
-    position: relative;
+    position: relative;*/
 }
 
 h1 {
@@ -155,14 +155,14 @@ h1 {
 /* Grid View Styles */
 .article-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
     padding: 10px 0;
     margin-bottom: 30px;
 }
 
 .article-card {
-    width: 240px;
+    width: 300px;
     min-height: 280px;
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -175,6 +175,7 @@ h1 {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    text-decoration: none;
 }
 
 /* Style for cards with images */
@@ -233,13 +234,13 @@ h1 {
 }
 
 .article-title {
-    font-size: 0.95rem;
+    font-size: 1.3rem;
     font-weight: 600;
     margin: 0 0 12px 0;
     color: var(--text-color);
-    height: 60px;
+    /* height: 60px;
     overflow: hidden;
-    display: -webkit-box;
+    display: -webkit-box; */
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     transition: color 0.3s ease;
@@ -272,7 +273,7 @@ h1 {
     line-height: 1.5;
     color: var(--text-color);
     opacity: 0.9;
-    height: 120px;
+    /* height: 120px; */
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 5;
@@ -280,6 +281,7 @@ h1 {
     margin: 10px 0;
     z-index: 1;
 }
+
 
 /* No summary cards */
 .article-card.no-summary {
