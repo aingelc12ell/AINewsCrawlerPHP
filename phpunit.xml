@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         testdox="true">
+    <testsuites>
+        <testsuite name="Error Handling Tests">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    
+    <coverage includeUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">app</directory>
+            <directory suffix=".php">public</directory>
+        </include>
+        <exclude>
+            <directory>vendor</directory>
+            <directory>storage</directory>
+            <directory>templates</directory>
+        </exclude>
+    </coverage>
+    
+    <php>
+        <env name="APP_DEBUG" value="true"/>
+        <env name="STORAGE_PATH" value="storage/articles"/>
+    </php>
+</phpunit>

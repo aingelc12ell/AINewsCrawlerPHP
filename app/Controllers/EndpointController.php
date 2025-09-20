@@ -17,7 +17,7 @@ class EndpointController
         $this->view = $view;
     }
 
-    public function index(Request $request, Response $response)
+    public function index(Request $request, Response $response): Response
     {
         $uri = $request->getUri();
         $queryParams = $request->getQueryParams();
@@ -52,7 +52,7 @@ class EndpointController
         return $response;
     }
 
-    public function search(Request $request, Response $response)
+    public function search(Request $request, Response $response): Response
     {
         $parsedBody = $request->getParsedBody();
         $searchQuery = $parsedBody['q'] ?? '';
@@ -82,7 +82,7 @@ class EndpointController
         return $response;
     }
 
-    public function sitemap(Request $request, Response $response)
+    public function sitemap(Request $request, Response $response): Response
     {
         // Get the latest 60 articles
         $articles = $this->storageService->getRecentArticles(60);
@@ -129,7 +129,9 @@ class EndpointController
 
         return $response;
     }
-    public function error(Request $request, Response $response, $args) {
+
+    public function error(Request $request, Response $response, $args): Response
+    {
         $uri = $request->getUri();
         $code = (int)$args['code'];
         $message = $request->getQueryParams()['message'] ?? null;
