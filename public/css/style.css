@@ -217,7 +217,7 @@ h1 a{
 .article-card.has-image .article-date,
 .article-card.has-image .article-summary {
     color: white;
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
 }
 
 /* Fallback gradient overlay for better text readability */
@@ -234,8 +234,8 @@ h1 a{
 }
 
 .article-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.12);
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
     border-color: var(--link-color);
 }
 

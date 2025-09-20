@@ -98,7 +98,7 @@ function setupCardBackgrounds() {
             const style = document.createElement('style');
             style.textContent = `
                     .article-card.has-image[data-url="${CSS.escape(imageUrl)}"]::before {
-                        background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('${imageUrl}');
+                        background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('${imageUrl}');
                         background-size: cover;
                         background-position: center;
                     }

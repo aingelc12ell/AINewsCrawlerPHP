@@ -42,7 +42,9 @@
                   {% if not article.summary or article.summary|trim == '' %}no-summary{% endif %}
                   {% if article.image_url and article.image_url != '' %}has-image{% endif %}"
                         {% if article.image_url and article.image_url != '' %}
-                    style="background-image: url('{{ article.image_url }}')"
+                    style="background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('{{ article.image_url }}');
+                            background-size: cover;
+                            background-position: center;"
                         {% endif %}>
                     <h3 class="article-title">{{ article.title }}</h3>
                     {% if article.summary and article.summary|trim != '' %}
