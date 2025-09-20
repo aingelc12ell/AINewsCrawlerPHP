@@ -66,6 +66,7 @@ class StorageService
                     'published_at' => $article->publishedAt,
                     'summary' => $article->summary == $article->title ? '' : $article->summary,
                     'slug' => $article->slug,
+                    'image_url' => $article->imageUrl ?? '',
                     'filename' => basename($file)
                 ];
             }
