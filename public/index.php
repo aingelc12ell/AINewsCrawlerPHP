@@ -42,7 +42,7 @@ $app->get('/crawl', [EndpointController::class, 'crawl']);
 $app->get('/sitemap.xml', [EndpointController::class, 'sitemap']);
 
 // Cache clearing and cleanup endpoint
-$app->post('/clear-cache', [EndpointController::class, 'clearCacheAndCleanup']);
+$app->get('/clear-cache', [EndpointController::class, 'clearCacheAndCleanup']);
 
 // Generic error endpoint that handles multiple status codes
 $app->get('/error/{code}', [EndpointController::class, 'error']);

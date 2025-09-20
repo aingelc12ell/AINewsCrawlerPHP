@@ -153,7 +153,7 @@ class EndpointController
             // Cleanup old articles
             $this->storageService->cleanupOldArticles();
 
-            // Prepare response data
+            /*// Prepare response data
             $responseData = [
                 'success'      => $cacheResult['success'],
                 'message'      => 'Cache and cleanup operations completed',
@@ -166,7 +166,10 @@ class EndpointController
             $statusCode = $cacheResult['success'] ? 200 : 500;
             return $response
                 ->withHeader('Content-Type', 'application/json')
-                ->withStatus($statusCode);
+                ->withStatus($statusCode);*/
+            return $response
+                ->withStatus(301)
+                ->withHeader('Location', '/');
         } catch (\Exception $e) {
             error_log("Error in clearCacheAndCleanup: " . $e->getMessage());
 
