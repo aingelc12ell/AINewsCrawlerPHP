@@ -154,6 +154,80 @@ class StorageService
             error_log("Cleaned up {$deletedCount} old articles");
         }
     }
+
+    public function clearCache(): array
+    {
+        $cacheDir = dirname($this->storagePath) . '/cache';
+        $deletedFiles = 0;
+        $deletedDirs = 0;
+
+        if (!is_dir($cacheDir)) {
+            return [
+                'success' => true,
+                'message' => 'Cache directory does not exist',
+                'deleted_files' => 0,
+                'deleted_directories' => 0
+            ];
+        }
+
+        try {
+            $deletedFiles += $this->deleteDirectoryContents($cacheDir);
+            
+            if ($_ENV['APP_DEBUG'] === 'true') {
+                error_log("Cleared cache: {$deletedFiles} files deleted");
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Cache cleared successfully',
+                'deleted_files' => $deletedFiles,
+                'deleted_directories' => $deletedDirs
+            ];
+        } catch (\Exception $e) {
+            error_log("Error clearing cache: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Failed to clear cache: ' . $e->getMessage(),
+                'deleted_files' => $deletedFiles,
+                'deleted_directories' => $deletedDirs
+            ];
+        }
+    }
+
+    private function deleteDirectoryContents(string $dir): int
+    {
+        $deletedCount = 0;
+        
+        if (!is_dir($dir)) {
+            return 0;
+        }
+
+        $files = scandir($dir);
+        if ($files === false) {
+            return 0;
+        }
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+
+            $path = $dir . DIRECTORY_SEPARATOR . $file;
+            
+            if (is_dir($path)) {
+                $deletedCount += $this->deleteDirectoryContents($path);
+                if (rmdir($path)) {
+                    $deletedCount++;
+                }
+            } else {
+                if (unlink($path)) {
+                    $deletedCount++;
+                }
+            }
+        }
+
+        return $deletedCount;
+    }
     public function searchArticles(string $query, int $page = 1, int $perPage = 20): array
     {
         if (empty(trim($query))) {

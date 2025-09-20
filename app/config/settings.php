@@ -45,6 +45,7 @@ return function (App $app) {
     $container->set(EndpointController::class, function ($container) {
         return new EndpointController(
             $container->get('storageService'),
+            $container->get('crawlerService'),
             $container->get('view')
         );
     });

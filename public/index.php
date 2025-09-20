@@ -31,66 +31,18 @@ $errorMiddleware = $app->addErrorMiddleware(
 $settingsFunction = require __DIR__ . '/../app/config/settings.php';
 $settingsFunction($app);
 
+// Routes
 $app->get('/', [EndpointController::class, 'index']);
 $app->post('/search', [EndpointController::class, 'search']);
 $app->get('/article/{slug}', [EndpointController::class, 'article']);
 /*
-$app->get('/crawl', function (Request $request, Response $response) {
-    $result = $this->get('crawlerService')->crawlAllSources();
+$app->get('/crawl', [EndpointController::class, 'crawl']);
+*/
 
-    $response->getBody()->write(json_encode([
-        'success' => true,
-        'message' => 'Crawling completed',
-        'stats' => $result
-    ]));
-    return $response->withHeader('Content-Type', 'application/json');
-});*/
-
-// Sitemap.xml endpoint
 $app->get('/sitemap.xml', [EndpointController::class, 'sitemap']);
 
-// Error handling endpoints
-/*$app->get('/error/404', function (Request $request, Response $response) {
-    $uri = $request->getUri();
-    $message = $request->getQueryParams()['message'] ?? null;
-
-    $response->getBody()->write(
-        $this->get('view')->render('error/404.twig', [
-            'baseUrl' => $uri->getScheme() . '://' . $uri->getHost(),
-            'message' => $message,
-            'title'   => 'Page Not Found - SystemsByBit - AI News',
-        ])
-    );
-    return $response->withStatus(404);
-});
-
-$app->get('/error/403', function (Request $request, Response $response) {
-    $uri = $request->getUri();
-    $message = $request->getQueryParams()['message'] ?? null;
-
-    $response->getBody()->write(
-        $this->get('view')->render('error/403.twig', [
-            'baseUrl' => $uri->getScheme() . '://' . $uri->getHost(),
-            'message' => $message,
-            'title'   => 'Access Forbidden - SystemsByBit - AI News',
-        ])
-    );
-    return $response->withStatus(403);
-});
-
-$app->get('/error/500', function (Request $request, Response $response) {
-    $uri = $request->getUri();
-    $message = $request->getQueryParams()['message'] ?? null;
-
-    $response->getBody()->write(
-        $this->get('view')->render('error/500.twig', [
-            'baseUrl' => $uri->getScheme() . '://' . $uri->getHost(),
-            'message' => $message,
-            'title'   => 'Internal Server Error - SystemsByBit - AI News',
-        ])
-    );
-    return $response->withStatus(500);
-});*/
+// Cache clearing and cleanup endpoint
+$app->post('/clear-cache', [EndpointController::class, 'clearCacheAndCleanup']);
 
 // Generic error endpoint that handles multiple status codes
 $app->get('/error/{code}', [EndpointController::class, 'error']);

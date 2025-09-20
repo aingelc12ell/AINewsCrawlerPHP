@@ -9,11 +9,13 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 class EndpointController
 {
     private $storageService;
+    private $crawlerService;
     private $view;
 
-    public function __construct($storageService, $view)
+    public function __construct($storageService, $crawlerService, $view)
     {
         $this->storageService = $storageService;
+        $this->crawlerService = $crawlerService;
         $this->view = $view;
     }
 
@@ -50,6 +52,18 @@ class EndpointController
             ])
         );
         return $response;
+    }
+
+    public function crawl(Request $request, Response $response): Response
+    {
+        $result = $this->crawlerService->crawlAllSources();
+
+        $response->getBody()->write(json_encode([
+            'success' => true,
+            'message' => 'Crawling completed',
+            'stats'   => $result,
+        ]));
+        return $response->withHeader('Content-Type', 'application/json');
     }
 
     public function search(Request $request, Response $response): Response
@@ -128,6 +142,46 @@ class EndpointController
         $response->getBody()->write($xml);
 
         return $response;
+    }
+
+    public function clearCacheAndCleanup(Request $request, Response $response): Response
+    {
+        try {
+            // Clear cache
+            $cacheResult = $this->storageService->clearCache();
+
+            // Cleanup old articles
+            $this->storageService->cleanupOldArticles();
+
+            // Prepare response data
+            $responseData = [
+                'success'      => $cacheResult['success'],
+                'message'      => 'Cache and cleanup operations completed',
+                'cache_result' => $cacheResult,
+                'timestamp'    => date('c'),
+            ];
+
+            $response->getBody()->write(json_encode($responseData, JSON_PRETTY_PRINT));
+
+            $statusCode = $cacheResult['success'] ? 200 : 500;
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus($statusCode);
+        } catch (\Exception $e) {
+            error_log("Error in clearCacheAndCleanup: " . $e->getMessage());
+
+            $errorResponse = [
+                'success'   => false,
+                'message'   => 'An error occurred during cache clearing and cleanup',
+                'error'     => $e->getMessage(),
+                'timestamp' => date('c'),
+            ];
+
+            $response->getBody()->write(json_encode($errorResponse, JSON_PRETTY_PRINT));
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus(500);
+        }
     }
 
     public function error(Request $request, Response $response, $args): Response
