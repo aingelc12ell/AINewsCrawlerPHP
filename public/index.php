@@ -32,6 +32,7 @@ $settingsFunction($app);
 
 // Define routes
 $app->get('/', function (Request $request, Response $response) {
+    $uri = $request->getUri();
     $queryParams = $request->getQueryParams();
 
     // Get search query if present
@@ -54,11 +55,11 @@ $app->get('/', function (Request $request, Response $response) {
 
     $response->getBody()->write(
         $this->get('view')->render('index.twig', [
-            'baseUrl'      => $request->getUri(),
+            'baseUrl'      => $uri->getScheme() . '://' . $uri->getHost(),
             'articles'     => $paginatedArticles['articles'],
             'pagination'   => $paginatedArticles,
             'search_query' => $searchQuery, // Pass search query to template
-            'title'        => !empty($searchQuery) ? "Search Results for '{$searchQuery}'" : 'AI News Aggregator',
+            'title'        => $_ENV['APP_NAME'] . (!empty($searchQuery) ? " - {$searchQuery}" : ''),
         ])
     );
     return $response;
