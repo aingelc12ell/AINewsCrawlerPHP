@@ -30,7 +30,7 @@
         <!-- Grid View -->
         <div id="gridView" class="article-grid">
             {% for article in articles %}
-                <a href="{{ article.url }}&ref={{ app.request.getUri() }}"
+                <a href="{{ article.url }}"
                    target="_blank"
                    class="article-card
                   {% if not article.summary or article.summary|trim == '' %}no-summary{% endif %}
