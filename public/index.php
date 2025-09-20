@@ -40,6 +40,7 @@ $app->get('/crawl', [EndpointController::class, 'crawl']);
 */
 
 $app->get('/sitemap.xml', [EndpointController::class, 'sitemap']);
+$app->get('/readme', [EndpointController::class, 'readme']);
 
 // Cache clearing and cleanup endpoint
 $app->get('/clear-cache', [EndpointController::class, 'clearCacheAndCleanup']);

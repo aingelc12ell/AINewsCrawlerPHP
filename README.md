@@ -99,7 +99,7 @@ The aggregator currently crawls from these AI-focused news sources:
 
 You can add more sources by editing the `app/config/sources.php` file.
 
-###Adding New Sources
+### Adding New Sources
 To add a new news source, edit `app/config/sources.php` and add a new source configuration:
 ```php
 [

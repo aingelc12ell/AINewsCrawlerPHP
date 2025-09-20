@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use DateTime;
+use League\CommonMark\CommonMarkConverter;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -185,6 +186,32 @@ class EndpointController
                 ->withHeader('Content-Type', 'application/json')
                 ->withStatus(500);
         }
+    }
+
+    public function readme(Request $request, Response $response): Response
+    {
+        $uri = $request->getUri();
+        $readmePath = __DIR__ . '/../../README.md';
+        
+        if (!file_exists($readmePath)) {
+            $response->getBody()->write("README.md file not found");
+            return $response->withStatus(404);
+        }
+        
+        $readmeContent = file_get_contents($readmePath);
+        
+        // Convert markdown to HTML
+        $converter = new CommonMarkConverter();
+        $htmlContent = $converter->convertToHtml($readmeContent);
+        
+        $response->getBody()->write(
+            $this->view->render('readme.twig', [
+                'baseUrl' => $uri->getScheme() . '://' . $uri->getHost(),
+                'readmeContent' => $htmlContent,
+                'title' => 'README - ' . ($_ENV['APP_NAME'] ?? 'AI News Aggregator'),
+            ])
+        );
+        return $response;
     }
 
     public function error(Request $request, Response $response, $args): Response
