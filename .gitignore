@@ -1,0 +1,7 @@
+/.idea
+/vendor/
+/storage/articles/
+/storage/logs/
+/storage/cache/
+.env
+composer.lock
