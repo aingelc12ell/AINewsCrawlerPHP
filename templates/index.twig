@@ -53,7 +53,7 @@
             {% for article in articles %}
                 <div class="article-list-item">
                     <div class="list-item-content">
-                        <a href="/article/{{ article.slug }}" class="list-item-title">{{ article.title }}</a>
+                        <a href="{{ article.url }}" class="list-item-title">{{ article.title }}</a>
                         <div class="list-item-meta">
                             <span class="list-item-source">{{ article.source }}</span>
                             <span>{{ article.published_at|date("M j, Y") }}</span>
