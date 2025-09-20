@@ -1,0 +1,28 @@
+{% extends "base.twig" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="article-detail">
+        <a href="/" class="back-link">← Back to all articles</a>
+
+        <h1>{{ article.title }}</h1>
+
+        <div class="article-meta-detail">
+            <span class="article-source">{{ article.source }}</span>
+            <span class="article-date">{{ article.published_at|date("F j, Y \a\\t g:i A") }}</span>
+        </div>
+
+        {% if article.summary %}
+            <p class="article-summary">{{ article.summary }}</p>
+        {% endif %}
+
+        <div class="article-content-detail">
+            {{ article.content|nl2br }}
+        </div>
+
+        <p>
+            <a href="{{ article.url }}" target="_blank" rel="noopener" class="back-link">Read original article</a>
+        </p>
+    </div>
+{% endblock %}

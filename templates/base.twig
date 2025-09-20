@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI News Aggregator{% endblock %}</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<button class="theme-toggle" id="themeToggle">Toggle Theme</button>
+
+<header>
+    <h1>AI News Aggregator</h1>
+    <p class="subtitle">Latest articles on Artificial Intelligence from trusted sources</p>
+</header>
+
+<main>
+    {% block content %}{% endblock %}
+</main>
+
+<footer>
+    <p>© {{ "now"|date("Y") }} AI News Aggregator. Articles fetched from various sources.</p>
+    <p><a href="/">Home</a> | <a href="/crawl">Manual Crawl</a></p>
+</footer>
+<script language="javascript" src="js/js.js"></script>
+</body>
+</html>

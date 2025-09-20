@@ -1,0 +1,111 @@
+{% extends "base.twig" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    {% if articles|length == 0 %}
+        <div class="no-articles">
+            <p>No articles found. Please run the crawler to fetch articles.</p>
+            <p><a href="/crawl">Click here to crawl now</a> or run <code>php cli/crawl.php</code> from command line.</p>
+        </div>
+    {% else %}
+        <div class="view-toggle-container">
+            <div class="view-toggle">
+                <button id="gridViewBtn" class="view-btn">Grid View</button>
+                <button id="listViewBtn" class="view-btn">List View</button>
+            </div>
+            <div class="per-page-control">
+                <label for="perPageSelect">Articles per page:</label>
+                <select id="perPageSelect">
+                    <option value="12" {% if pagination.per_page == 12 %}selected{% endif %}>12</option>
+                    <option value="20" {% if pagination.per_page == 20 %}selected{% endif %}>20</option>
+                    <option value="24" {% if pagination.per_page == 24 %}selected{% endif %}>24</option>
+                    <option value="36" {% if pagination.per_page == 36 %}selected{% endif %}>36</option>
+                    <option value="48" {% if pagination.per_page == 48 %}selected{% endif %}>48</option>
+                    <option value="60" {% if pagination.per_page == 60 %}selected{% endif %}>60</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Grid View -->
+        <div id="gridView" class="article-grid">
+            {% for article in articles %}
+                <a href="/article/{{ article.slug }}"
+                   class="article-card
+                  {% if not article.summary or article.summary|trim == '' %}no-summary{% endif %}
+                  {% if article.image_url and article.image_url != '' %}has-image{% endif %}"
+                        {% if article.image_url and article.image_url != '' %}
+                    style="background-image: url('{{ article.image_url }}')"
+                        {% endif %}>
+                    <h3 class="article-title">{{ article.title }}</h3>
+                    {% if article.summary and article.summary|trim != '' %}
+                        <p class="article-summary">{{ article.summary|length > 200 ? article.summary|slice(0, 200) ~ '...' : article.summary }}</p>
+                        <div class="article-source">{{ article.source }}</div>
+                        <div class="article-date">{{ article.published_at|date("M j, Y") }}</div>
+                    {% endif %}
+                </a>
+            {% endfor %}
+        </div>
+
+        <!-- List View -->
+        <div id="listView" class="article-list-view">
+            {% for article in articles %}
+                <div class="article-list-item">
+                    <div class="list-item-content">
+                        <a href="/article/{{ article.slug }}" class="list-item-title">{{ article.title }}</a>
+                        <div class="list-item-meta">
+                            <span class="list-item-source">{{ article.source }}</span>
+                            <span>{{ article.published_at|date("M j, Y") }}</span>
+                        </div>
+                        {% if article.summary and article.summary|trim != '' %}
+                            <p class="list-item-summary">{{ article.summary|length > 300 ? article.summary|slice(0, 300) ~ '...' : article.summary }}</p>
+                        {% endif %}
+                        <a href="/article/{{ article.slug }}" class="back-link">Read Article</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if pagination.pages > 1 %}
+            <div class="pagination">
+                <div class="pagination-info">
+                    Showing {{ (pagination.current_page - 1) * pagination.per_page + 1 }}-{{ (pagination.current_page - 1) * pagination.per_page + articles|length }}
+                    of {{ pagination.total }} articles
+                </div>
+
+                <div class="pagination-controls">
+                    {% if pagination.has_prev %}
+                        <a href="?page={{ pagination.prev_page }}&per_page={{ pagination.per_page }}" class="pagination-btn">← Previous</a>
+                    {% endif %}
+
+                    {% if pagination.pages <= 7 %}
+                        {% for i in 1..pagination.pages %}
+                            <a href="?page={{ i }}&per_page={{ pagination.per_page }}" class="pagination-btn {% if i == pagination.current_page %}active{% endif %}">{{ i }}</a>
+                        {% endfor %}
+                    {% else %}
+                        {% if pagination.current_page > 4 %}
+                            <a href="?page=1&per_page={{ pagination.per_page }}" class="pagination-btn">1</a>
+                            <span class="pagination-ellipsis">...</span>
+                        {% endif %}
+
+                        {% set start = [pagination.current_page - 2, 1] %}
+                        {% set end = [pagination.current_page + 2, pagination.pages] %}
+
+                        {% for i in start..end %}
+                            <a href="?page={{ i }}&per_page={{ pagination.per_page }}" class="pagination-btn {% if i == pagination.current_page %}active{% endif %}">{{ i }}</a>
+                        {% endfor %}
+
+                        {% if pagination.current_page < pagination.pages - 3 %}
+                            <span class="pagination-ellipsis">...</span>
+                            <a href="?page={{ pagination.pages }}&per_page={{ pagination.per_page }}" class="pagination-btn">{{ pagination.pages }}</a>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if pagination.has_next %}
+                        <a href="?page={{ pagination.next_page }}&per_page={{ pagination.per_page }}" class="pagination-btn">Next →</a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+{% endblock %}
