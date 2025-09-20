@@ -1,0 +1,19 @@
+{% extends "base.twig" %}
+
+{% block title %}Page Not Found - SystemsByBit - AI News{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-container">
+        <h1 class="error-code">404</h1>
+        <h2 class="error-title">Page Not Found</h2>
+        <p class="error-message">
+            {{ message ?? "The page you are looking for doesn't exist or has been moved." }}
+        </p>
+        <div class="error-actions">
+            <a href="{{ baseUrl ?? '/' }}" class="btn btn-primary">Go Home</a>
+            <button onclick="history.back()" class="btn btn-secondary">Go Back</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

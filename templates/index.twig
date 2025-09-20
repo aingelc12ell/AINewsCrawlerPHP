@@ -37,7 +37,7 @@
         <div id="gridView" class="article-grid">
             {% for article in articles %}
                 <a href="{{ article.url }}"
-                   target="_blank"
+                   target="_ainews"
                    class="article-card
                   {% if not article.summary or article.summary|trim == '' %}no-summary{% endif %}
                   {% if article.image_url and article.image_url != '' %}has-image{% endif %}"
@@ -61,14 +61,15 @@
             {% for article in articles %}
                 <div class="article-list-item">
                     <div class="list-item-content">
-                        <a href="{{ article.url }}" class="list-item-title">{{ article.title }}</a>
-                        <div class="list-item-meta">
-                            <span class="list-item-source">{{ article.source }}</span>
-                            <span>{{ article.published_at|date("M j, Y") }}</span>
-                        </div>
+                        <a href="{{ article.url }}" class="list-item-title" target="_ainews">{{ article.title }}</a>
+
                         {% if article.summary and article.summary|trim != '' %}
                             <p class="list-item-summary">{{ article.summary|length > 300 ? article.summary|slice(0, 300) ~ '...' : article.summary }}</p>
                         {% endif %}
+                        <div class="list-item-meta">
+                            <span class="list-item-source">{{ article.source }}</span>
+                            <span class="list-item-date">{{ article.published_at|date("M j, Y") }}</span>
+                        </div>
                         <!-- <a href="/article/{{ article.slug }}" class="back-link">Read Article</a> -->
                     </div>
                 </div>

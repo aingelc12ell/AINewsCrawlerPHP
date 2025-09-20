@@ -6,3 +6,4 @@
 .env
 composer.lock
 /ssl
+/tests

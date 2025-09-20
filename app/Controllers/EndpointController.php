@@ -1,0 +1,164 @@
+<?php
+
+namespace App\Controllers;
+
+use DateTime;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+
+class EndpointController
+{
+    private $storageService;
+    private $view;
+
+    public function __construct($storageService, $view)
+    {
+        $this->storageService = $storageService;
+        $this->view = $view;
+    }
+
+    public function index(Request $request, Response $response)
+    {
+        $uri = $request->getUri();
+        $queryParams = $request->getQueryParams();
+
+        // Get search query if present
+        $searchQuery = $queryParams['q'] ?? '';
+
+        // Get page parameter, default to 1
+        $page = (int)($request->getQueryParams()['page'] ?? 1);
+        // Get per_page parameter, default to 20
+        $perPage = (int)($request->getQueryParams()['per_page'] ?? $_ENV['PAGES_PER_PAGE'] ?? 50);
+
+        // Validate per_page (limit to reasonable values)
+        $perPage = max(12, min($perPage, 100)); // Between 12 and 60
+
+        if (!empty($searchQuery)) {
+            $paginatedArticles = $this->storageService->searchArticles($searchQuery, $page, $perPage);
+        }
+        else {
+            $paginatedArticles = $this->storageService->getPaginatedArticles($page, $perPage);
+        }
+
+        $response->getBody()->write(
+            $this->view->render('index.twig', [
+                'baseUrl'      => $uri->getScheme() . '://' . $uri->getHost(),
+                'articles'     => $paginatedArticles['articles'],
+                'pagination'   => $paginatedArticles,
+                'search_query' => $searchQuery, // Pass search query to template
+                'title'        => $_ENV['APP_NAME'] . (!empty($searchQuery) ? " - {$searchQuery}" : ''),
+            ])
+        );
+        return $response;
+    }
+
+    public function search(Request $request, Response $response)
+    {
+        $parsedBody = $request->getParsedBody();
+        $searchQuery = $parsedBody['q'] ?? '';
+
+        // Redirect to GET with query parameter for better UX
+        $uri = $request->getUri();
+        $newUri = $uri->withPath('/')->withQuery('q=' . urlencode($searchQuery));
+        return $response->withStatus(302)->withHeader('Location', (string)$newUri);
+    }
+
+    public function article(Request $request, Response $response, $args)
+    {
+        $slug = $args['slug'];
+        $article = $this->storageService->getArticleBySlug($slug);
+
+        if (!$article) {
+            $response->getBody()->write("Article not found");
+            return $response->withStatus(404);
+        }
+
+        $response->getBody()->write(
+            $this->view->render('article.twig', [
+                'article' => $article,
+                'title'   => $article['title'],
+            ])
+        );
+        return $response;
+    }
+
+    public function sitemap(Request $request, Response $response)
+    {
+        // Get the latest 60 articles
+        $articles = $this->storageService->getRecentArticles(60);
+
+        // Get base URL from request
+        $uri = $request->getUri();
+        $baseUrl = $uri->getScheme() . '://' . $uri->getHost();
+        if (($uri->getScheme() === 'https' && $uri->getPort() !== 443) ||
+            ($uri->getScheme() === 'http' && $uri->getPort() !== 80)) {
+            $baseUrl .= ':' . $uri->getPort();
+        }
+        $baseUrl .= '/';
+
+        // Generate sitemap XML
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+
+        // Add homepage
+        $xml .= '  <url>' . "\n";
+        $xml .= '    <loc>' . htmlspecialchars($baseUrl) . '</loc>' . "\n";
+        $xml .= '    <changefreq>daily</changefreq>' . "\n";
+        $xml .= '    <priority>1.0</priority>' . "\n";
+        $xml .= '  </url>' . "\n";
+
+        // Add each article
+        foreach ($articles as $article) {
+            $xml .= '  <url>' . "\n";
+            $xml .= '    <loc>' . htmlspecialchars($baseUrl . 'article/' . $article['slug']) . '</loc>' . "\n";
+
+            // Format the published date to W3C format
+            $publishedDate = new DateTime($article['published_at']);
+            $xml .= '    <lastmod>' . $publishedDate->format('c') . '</lastmod>' . "\n";
+
+            $xml .= '    <changefreq>weekly</changefreq>' . "\n";
+            $xml .= '    <priority>0.8</priority>' . "\n";
+            $xml .= '  </url>' . "\n";
+        }
+
+        $xml .= '</urlset>';
+
+        // Set appropriate headers
+        $response = $response->withHeader('Content-Type', 'application/xml; charset=utf-8');
+        $response->getBody()->write($xml);
+
+        return $response;
+    }
+    public function error(Request $request, Response $response, $args) {
+        $uri = $request->getUri();
+        $code = (int)$args['code'];
+        $message = $request->getQueryParams()['message'] ?? null;
+
+        // Map of supported error codes to templates and titles
+        $errorMap = [
+            400 => ['template' => 'error/404.twig', 'title' => 'Bad Request'],
+            401 => ['template' => 'error/403.twig', 'title' => 'Unauthorized'],
+            403 => ['template' => 'error/403.twig', 'title' => 'Access Forbidden'],
+            404 => ['template' => 'error/404.twig', 'title' => 'Page Not Found'],
+            405 => ['template' => 'error/404.twig', 'title' => 'Method Not Allowed'],
+            500 => ['template' => 'error/500.twig', 'title' => 'Internal Server Error'],
+            502 => ['template' => 'error/500.twig', 'title' => 'Bad Gateway'],
+            503 => ['template' => 'error/500.twig', 'title' => 'Service Unavailable'],
+        ];
+
+        if (!isset($errorMap[$code])) {
+            $code = 404;
+        }
+
+        $errorInfo = $errorMap[$code];
+
+        $response->getBody()->write(
+            $this->view->render($errorInfo['template'], [
+                'baseUrl' => $uri->getScheme() . '://' . $uri->getHost(),
+                'message' => $message,
+                'title'   => $errorInfo['title'] . ' - SystemsByBit - AI News',
+            ])
+        );
+        return $response->withStatus($code);
+    }
+}

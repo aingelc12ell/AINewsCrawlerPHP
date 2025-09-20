@@ -215,8 +215,21 @@ return [
             'image'       => 'img',
         ],
     ],
+    /*[
+        'name' => 'Reuters',
+        'base_url' => 'https://www.reuters.com',
+        'endpoint' => '/technology/artificial-intelligence/',
+        'selectors' => [
+            'articles' => 'main section ul li',
+            'title' => 'span[data-testid="TitleHeading"]',
+            'url' => 'a[data-testid="TitleLink"]',
+            'summary' => 'p[data-testid="Description"]',
+            'date' => 'time',
+            'datformat' => 'F j, Y'
+        ]
+    ],
 
-    /*
+
         [
             'name' => 'MIT Technology Review',
             'base_url' => 'https://www.technologyreview.com',

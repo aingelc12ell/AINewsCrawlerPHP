@@ -339,8 +339,8 @@ h1 a{
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 15px;
+    padding: 2px 20px;
+    margin-bottom: 5px;
     transition: all 0.2s ease;
     box-shadow: 0 2px 5px rgba(0,0,0,0.08);
 }
@@ -358,9 +358,9 @@ h1 a{
 .list-item-title {
     font-size: 1.1rem;
     font-weight: 600;
-    margin: 0 0 8px 0;
-    color: var(--link-color);
+    color: var(--text-color);
     transition: color 0.3s ease;
+    text-decoration: none;
 }
 
 .list-item-title:hover {
@@ -372,7 +372,6 @@ h1 a{
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: 8px 0 12px 0;
     font-size: 0.85rem;
     color: var(--text-color);
     opacity: 0.8;
@@ -381,6 +380,12 @@ h1 a{
 .list-item-source {
     color: var(--source-color);
     font-weight: 500;
+    display:inline-block;
+}
+.list-item-date {
+    color: var(--source-color);
+    font-size: 80%;
+    display:inline-block;
 }
 
 .list-item-summary {
@@ -810,5 +815,110 @@ footer {
     .search-btn, .clear-search {
         width: 100%;
         margin-top: 5px;
+    }
+}
+
+/* Error Page Styles */
+.error-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 50vh;
+    padding: 40px 20px;
+}
+
+.error-container {
+    text-align: center;
+    max-width: 600px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 40px 30px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.error-code {
+    font-size: 6rem;
+    font-weight: bold;
+    color: var(--source-color);
+    margin: 0 0 20px 0;
+    line-height: 1;
+}
+
+.error-title {
+    font-size: 2rem;
+    color: var(--header-text);
+    margin: 0 0 20px 0;
+    font-weight: 600;
+}
+
+.error-message {
+    font-size: 1.1rem;
+    color: var(--text-color);
+    margin: 0 0 30px 0;
+    opacity: 0.8;
+    line-height: 1.5;
+}
+
+.error-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.error-actions .btn {
+    padding: 12px 24px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 1rem;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    min-width: 120px;
+}
+
+.error-actions .btn-primary {
+    background-color: var(--link-color);
+    color: white;
+}
+
+.error-actions .btn-primary:hover {
+    background-color: var(--link-hover);
+}
+
+.error-actions .btn-secondary {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--card-border);
+}
+
+.error-actions .btn-secondary:hover {
+    background-color: var(--card-border);
+}
+
+/* Responsive error pages */
+@media (max-width: 768px) {
+    .error-container {
+        padding: 30px 20px;
+        margin: 0 10px;
+    }
+
+    .error-code {
+        font-size: 4rem;
+    }
+
+    .error-title {
+        font-size: 1.5rem;
+    }
+
+    .error-actions {
+        flex-direction: column;
+    }
+
+    .error-actions .btn {
+        width: 100%;
     }
 }

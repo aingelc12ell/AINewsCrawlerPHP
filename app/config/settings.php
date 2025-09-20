@@ -1,6 +1,7 @@
 <?php
 
 
+use App\Controllers\EndpointController;
 use App\Services\CrawlerService;
 use App\Services\StorageService;
 use DI\ContainerBuilder;
@@ -38,5 +39,13 @@ return function (App $app) {
 
     $container->set('storageService', function () {
         return new StorageService(__DIR__ . '/../../' . $_ENV['STORAGE_PATH']);
+    });
+
+    // Register EndpointController with dependency injection
+    $container->set(EndpointController::class, function ($container) {
+        return new EndpointController(
+            $container->get('storageService'),
+            $container->get('view')
+        );
     });
 };
