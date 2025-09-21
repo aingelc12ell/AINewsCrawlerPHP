@@ -11,6 +11,7 @@ A news aggregator website built with Slim PHP Framework that fetches and display
 - Twig templating for beautiful article listings and details
 - CLI command for manual or scheduled crawling
 - Configurable crawling frequency and article limits
+- SendGrid email integration for crawl results and articles notifications
 
 ## Installation
 
@@ -67,10 +68,39 @@ crontab -e
 ### Configuration
 Edit the `.env` file to configure:
 
+#### Basic Settings
 - `STORAGE_PATH` - Where markdown files are stored
 - `MAX_ARTICLES_PER_SOURCE` - Maximum articles to fetch per source (default: 10)
 - `CRAWL_FREQUENCY` - How often to crawl in seconds (used for scheduling)
 - `DELETE_OLDER_THAN_DAYS` - Articles older than this many days will be deleted (default: 30)
+
+#### Email Notifications (SendGrid)
+To receive email reports after crawling, configure these SendGrid settings:
+
+- `SENDGRID_API_KEY` - Your SendGrid API key (required)
+- `SENDGRID_FROM_EMAIL` - Verified sender email address in SendGrid (required)
+- `SENDGRID_FROM_NAME` - Display name for sender (optional, default: "AI News Crawler")
+- `SENDGRID_TO_EMAIL` - Recipient email address for reports (required)
+
+Example SendGrid configuration:
+```bash
+SENDGRID_API_KEY=SG.your_api_key_here
+SENDGRID_FROM_EMAIL=noreply@yourdomain.com
+SENDGRID_FROM_NAME=AI News Crawler
+SENDGRID_TO_EMAIL=admin@yourdomain.com
+```
+
+**Note:** The crawler will automatically send email reports containing crawl statistics and recent 
+articles when new articles are saved. If SendGrid is not configured, the crawler will continue to 
+work normally without email notifications.
+
+#### Testing Email Configuration
+To test your SendGrid configuration:
+```bash
+php test_email.php
+```
+
+This will send test emails to verify your SendGrid setup is working correctly.
 
 ### Supported News Sources
 

@@ -4,6 +4,7 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use App\Services\CrawlerService;
 use App\Services\StorageService;
+use App\Services\EmailService;
 use Dotenv\Dotenv;
 
 // Load environment variables
@@ -14,12 +15,25 @@ class CrawlCommand
 {
     private $crawlerService;
     private $storageService;
+    private $emailService;
 
     public function __construct()
     {
         $this->storageService = new StorageService($_ENV['STORAGE_PATH']);
         $this->crawlerService = new CrawlerService();
         $this->crawlerService->setCrawlerDependencies($this->storageService);
+        
+        // Initialize email service if SendGrid is configured
+        if (!empty($_ENV['SENDGRID_API_KEY']) && !empty($_ENV['SENDGRID_TO_EMAIL'])) {
+            try {
+                $this->emailService = new EmailService();
+            } catch (Exception $e) {
+                echo "Warning: Email service could not be initialized: " . $e->getMessage() . "\n";
+                $this->emailService = null;
+            }
+        } else {
+            $this->emailService = null;
+        }
     }
 
     public function run()
@@ -68,19 +82,23 @@ class CrawlCommand
             // Print detailed stats per source
             echo "\nDETAILED STATS PER SOURCE:\n";
             echo str_repeat("-", 50) . "\n";
+            $articleCount = count($stats['sources']);
             foreach ($stats['sources'] as $sourceName => $sourceStats) {
                 $status = !in_array($sourceName, $stats['failed_sources'] ?? []) ? "✓" : "✗";
                 $result = "{$status} {$sourceName}: {$sourceStats['saved']} saved";
 
                 if (!empty($sourceStats['error_message'])) {
                     $result .= " - ERROR: " . $sourceStats['error_message'];
+                    $articleCount--;
                 } else {
                     if ($sourceStats['errors'] > 0) {
                         $result .= ", {$sourceStats['errors']} errors";
+                        $articleCount--;
                     }
                     if ($sourceStats['processed'] > $sourceStats['saved']) {
                         $duplicates = $sourceStats['processed'] - $sourceStats['saved'];
                         $result .= ", {$duplicates} duplicates skipped";
+                        $articleCount--;
                     }
                 }
                 echo $result . "\n";
@@ -94,6 +112,30 @@ class CrawlCommand
             $logMessage = "[" . date('Y-m-d H:i:s') . "] Crawl completed: {$stats['total_saved']} articles saved, " .
                           count($stats['failed_sources'] ?? []) . " sources failed, in {$duration} seconds\n";
             file_put_contents(__DIR__ . '/../storage/logs/crawl.log', $logMessage, FILE_APPEND | LOCK_EX);
+
+            // Send email report if email service is configured
+            if ($this->emailService && $stats['total_saved'] > 0) {
+                echo "\nSending email report...\n";
+                try {
+                    // Get recent articles for the email report
+                    $recentArticles = $this->storageService->getRecentArticles($articleCount);
+                    
+                    // Send combined report with crawl stats and recent articles
+                    $emailSent = $this->emailService->sendCombinedReport($stats, $duration, $recentArticles);
+                    
+                    if ($emailSent) {
+                        echo "✓ Email report sent successfully\n";
+                    } else {
+                        echo "✗ Failed to send email report (check logs for details)\n";
+                    }
+                } catch (Exception $e) {
+                    echo "✗ Error sending email report: " . $e->getMessage() . "\n";
+                }
+            } elseif ($this->emailService && $stats['total_saved'] == 0) {
+                echo "\nSkipping email report (no new articles saved)\n";
+            } elseif (!$this->emailService) {
+                echo "\nEmail service not configured - skipping email report\n";
+            }
 
             // Exit with status code 0 (success) even if some sources failed
             exit(0);

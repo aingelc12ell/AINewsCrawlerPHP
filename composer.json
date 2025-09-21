@@ -12,7 +12,8 @@
     "symfony/dom-crawler": "^6.0",
     "symfony/css-selector": "^6.0",
     "league/commonmark": "^2.0",
-    "php-di/php-di": "^7.1"
+    "php-di/php-di": "^7.1",
+    "sendgrid/sendgrid": "^8.1"
   },
   "autoload": {
     "psr-4": {
