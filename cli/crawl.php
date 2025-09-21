@@ -82,23 +82,19 @@ class CrawlCommand
             // Print detailed stats per source
             echo "\nDETAILED STATS PER SOURCE:\n";
             echo str_repeat("-", 50) . "\n";
-            $articleCount = count($stats['sources']);
             foreach ($stats['sources'] as $sourceName => $sourceStats) {
                 $status = !in_array($sourceName, $stats['failed_sources'] ?? []) ? "✓" : "✗";
                 $result = "{$status} {$sourceName}: {$sourceStats['saved']} saved";
 
                 if (!empty($sourceStats['error_message'])) {
                     $result .= " - ERROR: " . $sourceStats['error_message'];
-                    $articleCount--;
                 } else {
                     if ($sourceStats['errors'] > 0) {
                         $result .= ", {$sourceStats['errors']} errors";
-                        $articleCount--;
                     }
                     if ($sourceStats['processed'] > $sourceStats['saved']) {
                         $duplicates = $sourceStats['processed'] - $sourceStats['saved'];
                         $result .= ", {$duplicates} duplicates skipped";
-                        $articleCount--;
                     }
                 }
                 echo $result . "\n";
@@ -118,7 +114,7 @@ class CrawlCommand
                 echo "\nSending email report...\n";
                 try {
                     // Get recent articles for the email report
-                    $recentArticles = $this->storageService->getRecentArticles($articleCount);
+                    $recentArticles = $this->storageService->getRecentArticles($stats['total_saved']);
                     
                     // Send combined report with crawl stats and recent articles
                     $emailSent = $this->emailService->sendCombinedReport($stats, $duration, $recentArticles);

@@ -161,7 +161,7 @@ return [
     [
         'name'      => 'DeepLearning.AI',
         'base_url'  => 'https://www.deeplearning.ai',
-        'endpoint'  => '/blog/',
+        'endpoint'  => '/blog/category/news-and-events/',
         'selectors' => [
             'articles'    => 'article',
             'title'       => 'h2',
@@ -187,7 +187,7 @@ return [
         ],
     ],
 
-    [
+    /*[
         'name'      => 'FutureTools.IO',
         'base_url'  => 'https://www.futuretools.io',
         'endpoint'  => '/news',
@@ -200,7 +200,7 @@ return [
             'date_format' => 'm.d.y',
             'image'       => 'a img',
         ],
-    ],
+    ],*/
     [
         'name'      => 'The Gradient',
         'base_url'  => 'https://thegradient.pub',
