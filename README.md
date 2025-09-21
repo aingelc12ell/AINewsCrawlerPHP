@@ -84,6 +84,7 @@ To receive email reports after crawling, configure these SendGrid settings:
 
 Example SendGrid configuration:
 ```bash
+
 SENDGRID_API_KEY=SG.your_api_key_here
 SENDGRID_FROM_EMAIL=noreply@yourdomain.com
 SENDGRID_FROM_NAME=AI News Crawler
@@ -97,6 +98,7 @@ work normally without email notifications.
 #### Testing Email Configuration
 To test your SendGrid configuration:
 ```bash
+
 php test_email.php
 ```
 

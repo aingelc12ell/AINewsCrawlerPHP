@@ -215,7 +215,7 @@ class EmailService
                 $html .= "<li>";
                 $html .= "<strong><a href='" . htmlspecialchars($article['url']) . "'>" . htmlspecialchars($article['title']) . "</a></strong><br>";
                 $html .= "<em>Source: " . htmlspecialchars($article['source']) . "</em><br>";
-                $html .= "<em>Published: " . htmlspecialchars($article['published_date']) . "</em><br>";
+                $html .= "<em>Published: " . htmlspecialchars($article['published_at']) . "</em><br>";
                 if (!empty($article['summary'])) {
                     $html .= "<p>" . htmlspecialchars(substr($article['summary'], 0, 200)) . "...</p>";
                 }
@@ -245,7 +245,7 @@ class EmailService
                 $text .= "Title: " . $article['title'] . "\n";
                 $text .= "URL: " . $article['url'] . "\n";
                 $text .= "Source: " . $article['source'] . "\n";
-                $text .= "Published: " . $article['published_date'] . "\n";
+                $text .= "Published: " . $article['published_at'] . "\n";
                 if (!empty($article['summary'])) {
                     $text .= "Summary: " . substr($article['summary'], 0, 200) . "...\n";
                 }

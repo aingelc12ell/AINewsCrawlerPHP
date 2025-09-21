@@ -215,6 +215,22 @@ return [
             'image'       => 'img',
         ],
     ],
+
+    [
+        'name' => 'NVidia Blog',
+        'base_url' => 'https://blogs.nvidia.com',
+        'endpoint' => '/blog/category/generative-ai/',
+        'selectors' => [
+            'articles' => 'article',
+            'title' => 'h2 a',
+            'url' => 'h2 a',
+            'summary' => 'div.article-excerpt p',
+            'date' => 'time',
+            'datformat' => 'F j, Y',
+            'image' => 'div.tile-image-wrapper img'
+        ]
+    ],
+
     /*[
         'name' => 'Reuters',
         'base_url' => 'https://www.reuters.com',
