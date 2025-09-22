@@ -503,9 +503,9 @@ class CrawlerService
                 $dateElements = $this->filterWithEnhancedSelectors($articleNode, $selectors['date']);
                 if ($dateElements->count() > 0) {
                     // Try to get datetime attribute first, then text content
-                    $dateText = $dateElements->attr('datetime') ?: $dateElements->attr(
-                        'content'
-                    ) ?: $dateElements->text();
+                    $dateText = $dateElements->attr('datetime')
+                        ?: $dateElements->attr('content')
+                            ?: $dateElements->text();
 
                     if ($dateText) {
                         try {

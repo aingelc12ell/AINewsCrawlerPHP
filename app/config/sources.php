@@ -173,6 +173,20 @@ return [
         ],
     ],
     [
+        'name'      => 'Tom\'s Hardware',
+        'base_url'  => 'https://www.tomshardware.com',
+        'endpoint'  => '/tech-industry/artificial-intelligence',
+        'selectors' => [
+            'articles'    => 'div.listingResults',
+            'title'       => 'h3',
+            'url'         => 'a',
+            'summary'     => 'p.synopsis',
+            'date'        => 'time',
+            'date_format' => 'M j, Y',
+            'image'       => 'img',
+        ],
+    ],
+    [
         'name'      => 'Google AI Blog',
         'base_url'  => 'https://research.google',
         'endpoint'  => '/blog/',

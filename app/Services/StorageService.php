@@ -24,7 +24,9 @@ class StorageService
         $filePath = $this->storagePath . '/' . $fileName;
 
         // Check if article already exists (deduplication)
-        if ($this->articleExists($article->url)) {
+        if ($this->articleExists($article->url)
+            || $this->articleExistsBySlug($article->slug)
+        ) {
             return false;
         }
 
@@ -42,6 +44,20 @@ class StorageService
         foreach ($files as $file) {
             $article = Article::fromMarkdownFile($file);
             if ($article && $article->url === $url) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function articleExistsBySlug(string $slug): bool
+    {
+        $files = glob($this->storagePath . '/*.md');
+
+        foreach ($files as $file) {
+            $article = Article::fromMarkdownFile($file);
+            if ($article && $article->slug === $slug) {
                 return true;
             }
         }
