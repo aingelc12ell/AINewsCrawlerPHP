@@ -98,8 +98,8 @@
                             <span class="pagination-ellipsis">...</span>
                         {% endif %}
 
-                        {% set start = [pagination.current_page - 2, 1] %}
-                        {% set end = [pagination.current_page + 2, pagination.pages] %}
+                        {% set start = pagination.start_page|default(1)|round(0, 'floor') %}
+                        {% set end = pagination.end_page|default(1)|round(0, 'floor') %}
 
                         {% for i in start..end %}
                             <a href="?page={{ i }}&per_page={{ pagination.per_page }}" class="pagination-btn {% if i == pagination.current_page %}active{% endif %}">{{ i }}</a>

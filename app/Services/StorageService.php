@@ -95,24 +95,27 @@ class StorageService
 
         // Calculate pagination
         $total = count($articles);
-        $pages = ceil($total / $perPage);
+        $pages = (int)ceil($total / $perPage);
         $page = max(1, min($page, $pages));
         $offset = ($page - 1) * $perPage;
 
         $paginatedArticles = array_slice($articles, $offset, $perPage);
 
+        $startPage = max(1, $page - 2);
+        $endPage = min($pages, $page + 2);
+
         return [
             'articles' => $paginatedArticles,
             'total' => $total,
-            'pages' => $pages,
+            'pages' => (int)$pages,
             'current_page' => $page,
             'per_page' => $perPage,
             'has_next' => $page < $pages,
             'has_prev' => $page > 1,
             'next_page' => $page < $pages ? $page + 1 : null,
             'prev_page' => $page > 1 ? $page - 1 : null,
-            'min' => $page > 1 ? $page - 1 : null,
-            'max' => $page < $pages ? $page + 1 : null,
+            'start_page' => (int)$startPage,
+            'end_page' => (int)$endPage,
         ];
     }
 
@@ -294,17 +297,22 @@ class StorageService
 
         $paginatedArticles = array_slice($articles, $offset, $perPage);
 
+        $startPage = max(1, $page - 2);
+        $endPage = min($pages, $page + 2);
+
         return [
             'articles' => $paginatedArticles,
             'total' => $total,
-            'pages' => $pages,
+            'pages' => (int)$pages,
             'current_page' => $page,
             'per_page' => $perPage,
             'has_next' => $page < $pages,
             'has_prev' => $page > 1,
             'next_page' => $page < $pages ? $page + 1 : null,
             'prev_page' => $page > 1 ? $page - 1 : null,
-            'query' => $query
+            'query' => $query,
+            'start_page' => (int)$startPage,
+            'end_page' => (int)$endPage,
         ];
     }
 

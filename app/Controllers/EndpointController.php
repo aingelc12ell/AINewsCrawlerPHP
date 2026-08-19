@@ -6,6 +6,7 @@ use DateTime;
 use League\CommonMark\CommonMarkConverter;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Slim\Exception\HttpNotFoundException;
 
 class EndpointController
 {
@@ -84,8 +85,7 @@ class EndpointController
         $article = $this->storageService->getArticleBySlug($slug);
 
         if (!$article) {
-            $response->getBody()->write("Article not found");
-            return $response->withStatus(404);
+            throw new HttpNotFoundException($request, 'Article not found');
         }
 
         $response->getBody()->write(
@@ -194,8 +194,7 @@ class EndpointController
         $readmePath = __DIR__ . '/../../README.md';
         
         if (!file_exists($readmePath)) {
-            $response->getBody()->write("README.md file not found");
-            return $response->withStatus(404);
+            throw new HttpNotFoundException($request, 'README.md file not found');
         }
         
         $readmeContent = file_get_contents($readmePath);
