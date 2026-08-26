@@ -4,19 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SystemsByBit - AI News{% endblock %}</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<button class="theme-toggle" id="themeToggle">Toggle Theme</button>
+<a class="skip-link" href="#main-content">Skip to articles</a>
 
 <header>
-    <h1><a href="{{  baseUrl }}">SystemsByBit: AI News</a></h1>
-    <p class="subtitle">Aggregating AI news from trusted sources, all in one place</p>
-    <!-- Search Form -->
+    <div class="header-brand-row">
+        <div class="brand-copy">
+            <a class="site-title" href="/">SystemsByBit: AI News</a>
+            <p class="subtitle">Independent AI reporting, gathered in one readable place</p>
+        </div>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">Use dark theme</button>
+    </div>
     <form method="GET" action="/" class="search-form">
+        <label class="visually-hidden" for="articleSearch">Search articles</label>
         <input type="text" name="q" placeholder="Search articles..."
                value="{{ search_query ?? '' }}"
-               class="search-input">
+               class="search-input" id="articleSearch" maxlength="200" autocomplete="off">
         <button type="submit" class="search-btn">Search</button>
         {% if search_query is defined and search_query|trim != '' %}
             <a href="/" class="clear-search">Clear Search</a>
@@ -24,18 +29,17 @@
     </form>
 </header>
 
-<main>
+<main id="main-content" tabindex="-1">
     {% block content %}{% endblock %}
 </main>
 
 <footer>
     <p>
-        © {{ "now"|date("Y") }} <a href="https://accessph.net">ACCESS Software Solutions</a>
-        | <a href="https://github.com/aingelc12ell/AINewsCrawlerPHP">Clone from GitHub</a>
-        | <a href="/clear-cache">Clear Cache</a>
+        © {{ "now"|date("Y") }} <a href="https://accessph.net" rel="noopener">ACCESS Software Solutions</a>
+        | <a href="https://github.com/aingelc12ell/AINewsCrawlerPHP" rel="noopener">View source</a>
         | <a href="/readme">Readme</a>
     </p>
 </footer>
-<script language="javascript" src="js/js.js"></script>
+<script src="/js/js.js" defer></script>
 </body>
 </html>

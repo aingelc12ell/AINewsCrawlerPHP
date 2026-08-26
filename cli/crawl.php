@@ -9,22 +9,35 @@ use Dotenv\Dotenv;
 
 // Load environment variables
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
-$dotenv->load();
+$dotenv->safeLoad();
+
+$_ENV['STORAGE_PATH'] = $_ENV['STORAGE_PATH'] ?? 'storage/articles';
+$_ENV['DELETE_OLDER_THAN_DAYS'] = $_ENV['DELETE_OLDER_THAN_DAYS'] ?? '30';
 
 class CrawlCommand
 {
     private $crawlerService;
     private $storageService;
     private $emailService;
+    private string $storagePath;
 
     public function __construct()
     {
-        $this->storageService = new StorageService($_ENV['STORAGE_PATH']);
+        $storagePath = $_ENV['STORAGE_PATH'];
+        if (!preg_match('~^(?:[A-Za-z]:[\\\\/]|/)~', $storagePath)) {
+            $storagePath = __DIR__ . '/../' . ltrim($storagePath, '/\\');
+        }
+        $this->storagePath = $storagePath;
+        $this->storageService = new StorageService($storagePath);
         $this->crawlerService = new CrawlerService();
         $this->crawlerService->setCrawlerDependencies($this->storageService);
         
         // Initialize email service if SendGrid is configured
-        if (!empty($_ENV['SENDGRID_API_KEY']) && !empty($_ENV['SENDGRID_TO_EMAIL'])) {
+        if (!empty($_ENV['SENDGRID_API_KEY'])
+            && !str_starts_with($_ENV['SENDGRID_API_KEY'], 'your_')
+            && !empty($_ENV['SENDGRID_TO_EMAIL'])
+            && !str_contains($_ENV['SENDGRID_TO_EMAIL'], '@yourdomain.com')
+        ) {
             try {
                 $this->emailService = new EmailService();
             } catch (Exception $e) {
@@ -100,8 +113,8 @@ class CrawlCommand
                 echo $result . "\n";
             }
 
-            echo "\nStorage location: " . realpath($_ENV['STORAGE_PATH']) . "\n";
-            $files = glob($_ENV['STORAGE_PATH'] . '/*.md');
+            echo "\nStorage location: " . (realpath($this->storagePath) ?: $this->storagePath) . "\n";
+            $files = glob($this->storagePath . '/*.md') ?: [];
             echo "Total articles in storage: " . count($files) . "\n";
 
             // Log to file

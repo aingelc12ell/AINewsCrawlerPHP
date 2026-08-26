@@ -4,6 +4,6 @@
 /storage/logs/
 /storage/cache/
 .env
-composer.lock
+/.phpunit.result.cache
 /ssl
-/tests
+/composer.lock

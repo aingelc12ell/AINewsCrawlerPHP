@@ -5,8 +5,14 @@
 {% block content %}
     {% if articles|length == 0 %}
         <div class="no-articles">
-            <p>No articles found. Please run the crawler to fetch articles.</p>
-            <p><a href="/crawl">Click here to crawl now</a> or run <code>php cli/crawl.php</code> from command line.</p>
+            {% if search_query is defined and search_query|trim != '' %}
+                <h2>No results for “{{ search_query }}”</h2>
+                <p>Try a broader term, search by source, or clear the search to browse recent coverage.</p>
+                <a href="/" class="back-link">Browse all articles</a>
+            {% else %}
+                <h2>No articles are available yet</h2>
+                <p>The next scheduled crawl will populate this page. Administrators can also run <code>php cli/crawl.php</code>.</p>
+            {% endif %}
         </div>
     {% else %}
         {% if search_query is defined and search_query|trim != '' %}
@@ -16,13 +22,18 @@
             </div>
         {% endif %}
         <div class="view-toggle-container">
-            <div class="view-toggle">
-                <button id="gridViewBtn" class="view-btn">Grid View</button>
-                <button id="listViewBtn" class="view-btn">List View</button>
+            <div class="display-options" aria-label="Article display options">
+                <div class="view-toggle" aria-label="Layout">
+                    <button id="gridViewBtn" class="view-btn" type="button" aria-pressed="true">Grid</button>
+                    <button id="listViewBtn" class="view-btn" type="button" aria-pressed="false">List</button>
+                </div>
+                <button id="cardImageToggle" class="view-btn image-toggle" type="button" aria-pressed="true">
+                    Card images: on
+                </button>
             </div>
             <div class="per-page-control">
                 <label for="perPageSelect">Articles per page:</label>
-                <select id="perPageSelect">
+                <select id="perPageSelect" aria-label="Articles per page">
                     <option value="12" {% if pagination.per_page == 12 %}selected{% endif %}>12</option>
                     <option value="20" {% if pagination.per_page == 20 %}selected{% endif %}>20</option>
                     <option value="24" {% if pagination.per_page == 24 %}selected{% endif %}>24</option>
@@ -36,39 +47,37 @@
         <!-- Grid View -->
         <div id="gridView" class="article-grid">
             {% for article in articles %}
-                <a href="{{ article.url }}"
-                   target="_ainews"
+                <a href="/article/{{ article.slug|url_encode }}"
                    class="article-card
                   {% if not article.summary or article.summary|trim == '' %}no-summary{% endif %}
                   {% if article.image_url and article.image_url != '' %}has-image{% endif %}"
-                        {% if article.image_url and article.image_url != '' %}
-                    style="background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('{{ article.image_url }}');
-                            background-size: cover;
-                            background-position: center;"
-                        {% endif %}>
+                        {% if article.image_url and article.image_url != '' %}data-image-url="{{ article.image_url }}"{% endif %}>
+                    <div class="article-card-meta">
+                        <span class="article-source">{{ article.source }}</span>
+                        <time class="article-date" datetime="{{ article.published_at|date('c') }}">{{ article.published_at|date("M j, Y") }}</time>
+                    </div>
                     <h3 class="article-title">{{ article.title }}</h3>
                     {% if article.summary and article.summary|trim != '' %}
                         <p class="article-summary">{{ article.summary|length > 200 ? article.summary|slice(0, 200) ~ '...' : article.summary }}</p>
                     {% endif %}
-                        <div class="article-source">{{ article.source }}</div>
-                        <div class="article-date">{{ article.published_at|date("M j, Y") }}</div>
+                    <span class="article-card-action">Read article</span>
                 </a>
             {% endfor %}
         </div>
 
         <!-- List View -->
-        <div id="listView" class="article-list-view">
+        <div id="listView" class="article-list-view" hidden>
             {% for article in articles %}
                 <div class="article-list-item">
                     <div class="list-item-content">
-                        <a href="{{ article.url }}" class="list-item-title" target="_ainews">{{ article.title }}</a>
+                        <a href="/article/{{ article.slug|url_encode }}" class="list-item-title">{{ article.title }}</a>
 
                         {% if article.summary and article.summary|trim != '' %}
                             <p class="list-item-summary">{{ article.summary|length > 300 ? article.summary|slice(0, 300) ~ '...' : article.summary }}</p>
                         {% endif %}
                         <div class="list-item-meta">
                             <span class="list-item-source">{{ article.source }}</span>
-                            <span class="list-item-date">{{ article.published_at|date("M j, Y") }}</span>
+                            <time class="list-item-date" datetime="{{ article.published_at|date('c') }}">{{ article.published_at|date("M j, Y") }}</time>
                         </div>
                         <!-- <a href="/article/{{ article.slug }}" class="back-link">Read Article</a> -->
                     </div>
@@ -77,6 +86,7 @@
         </div>
 
         {% if pagination.pages > 1 %}
+            {% set query_suffix = search_query is defined and search_query|trim != '' ? '&q=' ~ search_query|url_encode : '' %}
             <div class="pagination">
                 <div class="pagination-info">
                     Showing {{ (pagination.current_page - 1) * pagination.per_page + 1 }}-{{ (pagination.current_page - 1) * pagination.per_page + articles|length }}
@@ -85,16 +95,16 @@
 
                 <div class="pagination-controls">
                     {% if pagination.has_prev %}
-                        <a href="?page={{ pagination.prev_page }}&per_page={{ pagination.per_page }}" class="pagination-btn">← Previous</a>
+                        <a href="?page={{ pagination.prev_page }}&per_page={{ pagination.per_page }}{{ query_suffix }}" class="pagination-btn" rel="prev">← Previous</a>
                     {% endif %}
 
                     {% if pagination.pages <= 7 %}
                         {% for i in 1..pagination.pages %}
-                            <a href="?page={{ i }}&per_page={{ pagination.per_page }}" class="pagination-btn {% if i == pagination.current_page %}active{% endif %}">{{ i }}</a>
+                            <a href="?page={{ i }}&per_page={{ pagination.per_page }}{{ query_suffix }}" class="pagination-btn {% if i == pagination.current_page %}active{% endif %}"{% if i == pagination.current_page %} aria-current="page"{% endif %}>{{ i }}</a>
                         {% endfor %}
                     {% else %}
                         {% if pagination.current_page > 4 %}
-                            <a href="?page=1&per_page={{ pagination.per_page }}" class="pagination-btn">1</a>
+                            <a href="?page=1&per_page={{ pagination.per_page }}{{ query_suffix }}" class="pagination-btn">1</a>
                             <span class="pagination-ellipsis">...</span>
                         {% endif %}
 
@@ -102,17 +112,17 @@
                         {% set end = pagination.end_page|default(1)|round(0, 'floor') %}
 
                         {% for i in start..end %}
-                            <a href="?page={{ i }}&per_page={{ pagination.per_page }}" class="pagination-btn {% if i == pagination.current_page %}active{% endif %}">{{ i }}</a>
+                            <a href="?page={{ i }}&per_page={{ pagination.per_page }}{{ query_suffix }}" class="pagination-btn {% if i == pagination.current_page %}active{% endif %}"{% if i == pagination.current_page %} aria-current="page"{% endif %}>{{ i }}</a>
                         {% endfor %}
 
                         {% if pagination.current_page < pagination.pages - 3 %}
                             <span class="pagination-ellipsis">...</span>
-                            <a href="?page={{ pagination.pages }}&per_page={{ pagination.per_page }}" class="pagination-btn">{{ pagination.pages }}</a>
+                            <a href="?page={{ pagination.pages }}&per_page={{ pagination.per_page }}{{ query_suffix }}" class="pagination-btn">{{ pagination.pages }}</a>
                         {% endif %}
                     {% endif %}
 
                     {% if pagination.has_next %}
-                        <a href="?page={{ pagination.next_page }}&per_page={{ pagination.per_page }}" class="pagination-btn">Next →</a>
+                        <a href="?page={{ pagination.next_page }}&per_page={{ pagination.per_page }}{{ query_suffix }}" class="pagination-btn" rel="next">Next →</a>
                     {% endif %}
                 </div>
             </div>

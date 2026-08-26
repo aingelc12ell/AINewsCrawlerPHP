@@ -1,124 +1,238 @@
+const storage = {
+    get(key) {
+        try { return window.localStorage.getItem(key); } catch (error) { return null; }
+    },
+    set(key, value) {
+        try { window.localStorage.setItem(key, value); } catch (error) {
+            // Preferences still work for this page when storage is unavailable.
+        }
+    }
+};
 
-// Theme toggle functionality
 const themeToggle = document.getElementById('themeToggle');
+const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
 
-// Check for saved theme preference or respect OS preference
-const savedTheme = localStorage.getItem('theme');
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-if (savedTheme) {
-    document.documentElement.setAttribute('data-theme', savedTheme);
-} else if (prefersDark) {
-    document.documentElement.setAttribute('data-theme', 'dark');
+function setTheme(theme, persist = false) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (themeToggle) {
+        const isDark = theme === 'dark';
+        themeToggle.textContent = isDark ? 'Use light theme' : 'Use dark theme';
+        themeToggle.setAttribute('aria-pressed', String(isDark));
+    }
+    if (persist) storage.set('theme', theme);
 }
 
-// Update button text based on current theme
-function updateButtonText() {
+setTheme(storage.get('theme') || (systemTheme.matches ? 'dark' : 'light'));
+themeToggle?.addEventListener('click', () => {
     const currentTheme = document.documentElement.getAttribute('data-theme');
-    themeToggle.textContent = currentTheme === 'dark' ? 'Light Theme' : 'Dark Theme';
-}
-
-updateButtonText();
-
-// Toggle theme on button click
-themeToggle.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    updateButtonText();
+    setTheme(currentTheme === 'dark' ? 'light' : 'dark', true);
+});
+systemTheme.addEventListener?.('change', event => {
+    if (!storage.get('theme')) setTheme(event.matches ? 'dark' : 'light');
 });
 
-// View toggle functionality
 function setupViewToggle() {
     const gridBtn = document.getElementById('gridViewBtn');
     const listBtn = document.getElementById('listViewBtn');
     const gridContainer = document.getElementById('gridView');
     const listContainer = document.getElementById('listView');
+    if (!gridBtn || !listBtn || !gridContainer || !listContainer) return;
 
-    if (!gridBtn || !listBtn || !gridContainer || !listContainer) {
+    const setView = view => {
+        const showList = view === 'list';
+        gridContainer.hidden = showList;
+        listContainer.hidden = !showList;
+        gridBtn.classList.toggle('active', !showList);
+        listBtn.classList.toggle('active', showList);
+        gridBtn.setAttribute('aria-pressed', String(!showList));
+        listBtn.setAttribute('aria-pressed', String(showList));
+    };
+
+    setView(storage.get('viewMode') === 'list' ? 'list' : 'grid');
+    gridBtn.addEventListener('click', () => { setView('grid'); storage.set('viewMode', 'grid'); });
+    listBtn.addEventListener('click', () => { setView('list'); storage.set('viewMode', 'list'); });
+}
+
+function setupPerPageHandler() {
+    const select = document.getElementById('perPageSelect');
+    if (!select) return;
+    select.addEventListener('change', function () {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('per_page', this.value);
+        currentUrl.searchParams.set('page', '1');
+        window.location.assign(currentUrl);
+    });
+}
+
+let cardImageObserver;
+
+function loadCardBackgrounds() {
+    const cards = document.querySelectorAll('.article-card[data-image-url]:not(.image-loaded)');
+    const loadImage = card => {
+        try {
+            const imageUrl = new URL(card.dataset.imageUrl);
+            if (!['http:', 'https:'].includes(imageUrl.protocol)) return;
+            card.style.setProperty('--article-image', `url(${JSON.stringify(imageUrl.href)})`);
+            card.classList.add('image-loaded');
+        } catch (error) {
+            // Invalid legacy image URLs use the standard card surface.
+        }
+    };
+
+    if (!('IntersectionObserver' in window)) {
+        cards.forEach(loadImage);
+        return;
+    }
+    cardImageObserver ||= new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                loadImage(entry.target);
+                cardImageObserver.unobserve(entry.target);
+            }
+        });
+    }, {rootMargin: '300px 0px'});
+    cards.forEach(card => cardImageObserver.observe(card));
+}
+
+function setupCardBackgroundToggle() {
+    const toggle = document.getElementById('cardImageToggle');
+    if (!toggle) return;
+
+    const setCardImages = (enabled, persist = false) => {
+        document.documentElement.setAttribute('data-card-images', enabled ? 'on' : 'off');
+        toggle.textContent = `Card images: ${enabled ? 'on' : 'off'}`;
+        toggle.setAttribute('aria-pressed', String(enabled));
+        if (enabled) loadCardBackgrounds();
+        if (persist) storage.set('cardImages', enabled ? 'on' : 'off');
+    };
+
+    setCardImages(storage.get('cardImages') !== 'off');
+    toggle.addEventListener('click', () => {
+        setCardImages(document.documentElement.getAttribute('data-card-images') !== 'on', true);
+    });
+}
+
+function splitSpeechText(text, maximumLength = 220) {
+    const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+    const chunks = [];
+    let current = '';
+    const addWords = sentence => {
+        sentence.trim().split(/\s+/).forEach(word => {
+            if (`${current} ${word}`.trim().length > maximumLength && current) {
+                chunks.push(current.trim());
+                current = '';
+            }
+            current = `${current} ${word}`.trim();
+        });
+    };
+
+    sentences.forEach(sentence => {
+        const cleanSentence = sentence.trim();
+        if (!cleanSentence) return;
+        if (cleanSentence.length > maximumLength) {
+            if (current) { chunks.push(current.trim()); current = ''; }
+            addWords(cleanSentence);
+        } else if (`${current} ${cleanSentence}`.trim().length > maximumLength) {
+            chunks.push(current.trim());
+            current = cleanSentence;
+        } else {
+            current = `${current} ${cleanSentence}`.trim();
+        }
+    });
+    if (current) chunks.push(current.trim());
+    return chunks;
+}
+
+function setupTextToSpeech() {
+    const reader = document.querySelector('[data-article-reader]');
+    const playBtn = document.getElementById('speechPlayBtn');
+    const pauseBtn = document.getElementById('speechPauseBtn');
+    const stopBtn = document.getElementById('speechStopBtn');
+    const rateSelect = document.getElementById('speechRate');
+    const status = document.getElementById('speechStatus');
+    if (!reader || !playBtn || !pauseBtn || !stopBtn || !rateSelect || !status) return;
+
+    if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+        [playBtn, pauseBtn, stopBtn, rateSelect].forEach(control => { control.disabled = true; });
+        status.textContent = 'Text-to-speech is not supported by this browser.';
         return;
     }
 
-    // Check for saved view preference
-    const savedView = localStorage.getItem('viewMode') || 'grid';
+    const synth = window.speechSynthesis;
+    const sourceParts = ['[data-reader-title]', '[data-reader-summary]', '[data-reader-content]']
+        .map(selector => reader.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+    const chunks = splitSpeechText(sourceParts.join('. '));
+    let chunkIndex = 0;
+    let runId = 0;
+    let state = 'idle';
 
-    if (savedView === 'list') {
-        gridContainer.style.display = 'none';
-        listContainer.style.display = 'block';
-        gridBtn.classList.remove('active');
-        listBtn.classList.add('active');
-    } else {
-        gridContainer.style.display = 'grid';
-        listContainer.style.display = 'none';
-        gridBtn.classList.add('active');
-        listBtn.classList.remove('active');
-    }
+    const renderState = (nextState, message) => {
+        state = nextState;
+        playBtn.disabled = nextState !== 'idle';
+        pauseBtn.disabled = nextState === 'idle';
+        stopBtn.disabled = nextState === 'idle';
+        pauseBtn.textContent = nextState === 'paused' ? 'Resume' : 'Pause';
+        status.textContent = message;
+    };
 
-    // Grid view button
-    gridBtn.addEventListener('click', () => {
-        gridContainer.style.display = 'grid';
-        listContainer.style.display = 'none';
-        gridBtn.classList.add('active');
-        listBtn.classList.remove('active');
-        localStorage.setItem('viewMode', 'grid');
+    const speakNext = currentRun => {
+        if (currentRun !== runId || chunkIndex >= chunks.length) {
+            if (currentRun === runId) renderState('idle', 'Finished listening.');
+            return;
+        }
+        const utterance = new SpeechSynthesisUtterance(chunks[chunkIndex]);
+        utterance.rate = Number(rateSelect.value);
+        utterance.onend = () => {
+            if (currentRun !== runId) return;
+            chunkIndex += 1;
+            speakNext(currentRun);
+        };
+        utterance.onerror = event => {
+            if (currentRun === runId && !['canceled', 'interrupted'].includes(event.error)) {
+                runId += 1;
+                renderState('idle', 'Playback stopped because the browser voice could not continue.');
+            }
+        };
+        synth.speak(utterance);
+    };
+
+    const stopSpeech = () => {
+        runId += 1;
+        chunkIndex = 0;
+        synth.cancel();
+        renderState('idle', 'Playback stopped.');
+    };
+
+    playBtn.addEventListener('click', () => {
+        if (!chunks.length) {
+            status.textContent = 'There is no article text to read.';
+            return;
+        }
+        runId += 1;
+        chunkIndex = 0;
+        synth.cancel();
+        renderState('speaking', 'Reading the article aloud.');
+        speakNext(runId);
     });
-
-    // List view button
-    listBtn.addEventListener('click', () => {
-        gridContainer.style.display = 'none';
-        listContainer.style.display = 'block';
-        gridBtn.classList.remove('active');
-        listBtn.classList.add('active');
-        localStorage.setItem('viewMode', 'list');
-    });
-}
-
-// Per page change handler
-function setupPerPageHandler() {
-    const perPageSelect = document.getElementById('perPageSelect');
-    if (perPageSelect) {
-        perPageSelect.addEventListener('change', function() {
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('per_page', this.value);
-            currentUrl.searchParams.set('page', '1'); // Reset to page 1
-            window.location.href = currentUrl.toString();
-        });
-    }
-}
-
-// Add background image to cards with data-background attribute
-function setupCardBackgrounds() {
-    const cards = document.querySelectorAll('.article-card.has-image');
-    cards.forEach(card => {
-        const imageUrl = card.getAttribute('style')?.match(/url\(['"]?([^'"]*)['"]?\)/)?.[1];
-        if (imageUrl) {
-            // Create a pseudo-element for the background image
-            const style = document.createElement('style');
-            style.textContent = `
-                    .article-card.has-image[data-url="${CSS.escape(imageUrl)}"]::before {
-                        background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('${imageUrl}');
-                        background-size: cover;
-                        background-position: center;
-                    }
-                `;
-            document.head.appendChild(style);
-
-            // Add data attribute for CSS targeting
-            card.setAttribute('data-url', imageUrl);
+    pauseBtn.addEventListener('click', () => {
+        if (state === 'paused') {
+            synth.resume();
+            renderState('speaking', 'Reading the article aloud.');
+        } else if (state === 'speaking') {
+            synth.pause();
+            renderState('paused', 'Playback paused.');
         }
     });
+    stopBtn.addEventListener('click', stopSpeech);
+    window.addEventListener('pagehide', () => { runId += 1; synth.cancel(); });
 }
 
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', () => {
     setupViewToggle();
     setupPerPageHandler();
-    setupCardBackgrounds();
-    // Focus search input if search query exists
+    setupCardBackgroundToggle();
+    setupTextToSpeech();
     const searchInput = document.querySelector('.search-input');
-    if (searchInput && window.location.search.includes('q=')) {
-        searchInput.focus();
-    }
+    if (searchInput && new URLSearchParams(window.location.search).has('q')) searchInput.focus();
 });

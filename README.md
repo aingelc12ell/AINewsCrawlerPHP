@@ -1,194 +1,121 @@
 # AI News Aggregator
 
-A news aggregator website built with Slim PHP Framework that fetches and displays news articles about Artificial Intelligence.
+A lightweight AI-news reader and crawler built with Slim 4, Twig, Guzzle, and filesystem-backed Markdown storage.
 
 ## Features
 
-- Crawls AI news from multiple trusted sources
-- Stores articles as markdown files with YAML front matter
-- Deduplication to prevent storing duplicate articles
-- Automatic cleanup of articles older than 30 days
-- Twig templating for beautiful article listings and details
-- CLI command for manual or scheduled crawling
-- Configurable crawling frequency and article limits
-- SendGrid email integration for crawl results and articles notifications
+- Crawls 18 configured AI and technology sources while isolating source failures
+- Validates outbound destinations and redirects to prevent private-network requests
+- Uses TLS verification, timeouts, request pacing, per-minute limits, jitter, and `Retry-After`
+- Stores articles as Markdown with YAML front matter
+- Deduplicates by URL and slug and writes under an exclusive lock with atomic replacement
+- Provides search, pagination, grid/list views, article detail pages, and light/dark themes
+- Generates canonical `robots.txt` and sitemap responses from `APP_URL`
+- Cleans up expired articles from the CLI crawl workflow, not public page requests
+- Optionally sends crawl reports through SendGrid
+- Includes PHPUnit coverage for HTTP security behavior, storage, and URL safety
+
+## Requirements
+
+- PHP 8.0 or newer with `mbstring`
+- Composer
+- A web server whose document root points to `public/`
 
 ## Installation
 
-1. Clone the repository:
 ```bash
-
-git clone https://github.com/aingelc12ell/ainewscrawlerphp.git
-cd ai-news-aggregator
-```
-2. Install dependencies:
-```bash
-
+git clone https://github.com/aingelc12ell/AINewsCrawlerPHP.git
+cd AINewsCrawlerPHP
 composer install
+cp .env-sample .env
 ```
-3. Copy and configure environment variables:
-```bash
 
-cp .env.example .env
-# Edit .env file as needed
+Set `APP_URL` in `.env` to the exact public origin, for example `https://news.example.com`. Requests with a different Host header are rejected when this setting is present.
+
+Create writable runtime directories if your deployment process does not create them automatically:
+
+```bash
+mkdir -p storage/articles storage/cache storage/logs
 ```
-4. Make the CLI script executable:
+
+Point Apache, IIS, or Nginx at `public/`. The included rewrite configurations send non-file requests to `public/index.php`.
+
+## Usage
+
+### Web reader
+
+- `/` — latest articles, search, and pagination
+- `/article/{slug}` — locally stored article detail
+- `/readme` — rendered project documentation
+- `/sitemap.xml` and `/robots.txt` — canonical crawler metadata
+
+Crawling and cache maintenance are intentionally not exposed as public HTTP endpoints.
+
+### Crawl from the CLI
+
 ```bash
-
-chmod +x cli/crawl.php
-```
-5. Set up web server to point to the `public` directory.
-
-### Usage
-
-#### Web Interface
-Visit your website to see the latest AI articles:
-- Homepage: `/` - Lists all recent articles
-- Article detail: `/article/{slug}` - Shows full article content
-- Manual crawl: `/crawl` - Triggers crawling from web (returns JSON)
-
-#### CLI Command
-Run the crawler manually:
-```bash
-
 php cli/crawl.php
 ```
 
-##### Scheduling
-Set up a cron job to crawl automatically. For example, to crawl every hour:
-```bash
+Schedule that command with cron or your platform scheduler. The application does not run an internal background scheduler. Example:
 
-# Edit crontab
-crontab -e
-
-# Add this line (adjust path as needed)
-0 * * * * cd /path/to/ai-news-aggregator && php cli/crawl.php >> /path/to/ai-news-aggregator/storage/logs/crawl.log 2>&1
+```cron
+0 */2 * * * cd /path/to/AINewsCrawlerPHP && php cli/crawl.php >> storage/logs/crawl.log 2>&1
 ```
 
-### Configuration
-Edit the `.env` file to configure:
+The CLI returns success when the overall crawl completes even if individual sources fail; failures remain visible in its report and log.
 
-#### Basic Settings
-- `STORAGE_PATH` - Where markdown files are stored
-- `MAX_ARTICLES_PER_SOURCE` - Maximum articles to fetch per source (default: 10)
-- `CRAWL_FREQUENCY` - How often to crawl in seconds (used for scheduling)
-- `DELETE_OLDER_THAN_DAYS` - Articles older than this many days will be deleted (default: 30)
+## Configuration
 
-#### Email Notifications (SendGrid)
-To receive email reports after crawling, configure these SendGrid settings:
+Important `.env` settings:
 
-- `SENDGRID_API_KEY` - Your SendGrid API key (required)
-- `SENDGRID_FROM_EMAIL` - Verified sender email address in SendGrid (required)
-- `SENDGRID_FROM_NAME` - Display name for sender (optional, default: "AI News Crawler")
-- `SENDGRID_TO_EMAIL` - Recipient email address for reports (required)
+- `APP_URL` — trusted canonical origin used for host validation, sitemap, and robots output
+- `STORAGE_PATH` — article directory; relative paths resolve from the repository root
+- `MAX_ARTICLES_PER_SOURCE` — normal per-source processing limit
+- `CRAWL_AGGRESSIVE` — boolean; process every discovered item when `true`
+- `CRAWL_TIMEOUT` — HTTP timeout in seconds
+- `MAX_REQUESTS_PER_MINUTE` — process-wide outbound request ceiling
+- `CRAWL_DELAY_BETWEEN_SOURCES`, `CRAWL_DELAY_BETWEEN_ARTICLES`, `CRAWL_DELAY_BETWEEN_REQUESTS` — delays in microseconds
+- `SSL_VERIFY` — keep `true`; it may also point to a custom CA bundle
+- `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` — optional proxy configuration
+- `DELETE_OLDER_THAN_DAYS` — retention period applied after CLI crawls
+- `PAGES_PER_PAGE` — default reader page size; requests are clamped to 12–100
+- `SITEMAP_LIMIT` — maximum sitemap entries, clamped to 50,000
+- `SENDGRID_*` — optional email-report settings
 
-Example SendGrid configuration:
-```bash
+Sources and selectors live in `app/config/sources.php`. Article links are restricted to the configured source host and its subdomains. Add `allowed_hosts` to a source when it legitimately redirects to another controlled host:
 
-SENDGRID_API_KEY=SG.your_api_key_here
-SENDGRID_FROM_EMAIL=noreply@yourdomain.com
-SENDGRID_FROM_NAME=AI News Crawler
-SENDGRID_TO_EMAIL=admin@yourdomain.com
-```
-
-**Note:** The crawler will automatically send email reports containing crawl statistics and recent 
-articles when new articles are saved. If SendGrid is not configured, the crawler will continue to 
-work normally without email notifications.
-
-#### Testing Email Configuration
-To test your SendGrid configuration:
-```bash
-
-php test_email.php
-```
-
-This will send test emails to verify your SendGrid setup is working correctly.
-
-### Supported News Sources
-
-The aggregator currently crawls from these AI-focused news sources:
-
-1. **TechCrunch** - AI category
-2. **The Verge** - AI section
-3. **MIT Technology Review** - AI topic
-4. **Wired** - Artificial Intelligence category
-5. **Ars Technica** - AI tag
-6. **VentureBeat** - AI section
-7. **ZDNet** - AI topic
-8. **IEEE Spectrum** - AI topic
-9. **Analytics India Magazine** - AI category
-10. **Synced** - AI category
-11. **AI Trends** - AI search results
-12. **MarkTechPost** - AI category
-13. **Towards AI** - AI category
-14. **DeepLearning.AI** - Blog section
-15. **Google AI Blog** - Main page
-16. **OpenAI Blog** - Blog section
-17. **Machine Learning Mastery** - Blog
-18. **KDnuggets** - AI search results
-19. **Data Science Central** - Blog
-20. **The Gradient** - Main page
-
-You can add more sources by editing the `app/config/sources.php` file.
-
-### Adding New Sources
-To add a new news source, edit `app/config/sources.php` and add a new source configuration:
 ```php
 [
-    'name' => 'Source Name',
-    'base_url' => 'https://example.com',
-    'endpoint' => '/ai-news/',
+    'name' => 'Example',
+    'base_url' => 'https://news.example.com',
+    'endpoint' => '/ai',
+    'allowed_hosts' => ['example.com', 'cdn.example.com'],
     'selectors' => [
-        'articles' => 'css-selector-for-article-container',
-        'title' => 'css-selector-for-title',
-        'url' => 'css-selector-for-url',
-        'summary' => 'css-selector-for-summary',
-        'date' => 'css-selector-for-date',
-        'date_format' => 'PHP date format'
-        ]
+        'articles' => 'article',
+        'title' => 'h2 a',
+        'url' => 'h2 a',
+        'summary' => 'p',
+        'date' => 'time',
+        'date_format' => 'Y-m-d',
+    ],
 ]
 ```
 
-#### File Storage Format
-Articles are stored as markdown files in the format YYYY-MM-DD-slug.md with YAML front matter:
-```markdown
----
-title: "Article Title"
-url: "https://example.com/article-url"
-source: "Source Name"
-published_at: "2023-10-15 14:30:00"
-summary: "Brief summary of the article"
-slug: "article-title-slug"
----
-Full article content here...
+## Testing and security checks
+
+```bash
+composer test
+composer validate --strict
+composer audit --locked
 ```
 
-## Author notes
-This project has been generated from Qwen with modifications from Claude and JetBrain's Junie.
-Some changes were made to fit trivial details.
+The committed `composer.lock` makes deployments reproducible. Run dependency auditing as part of CI and refresh locked packages regularly.
 
-## AI post-conversation Prompt
-"Using the Slim PHP Framework, develop a comprehensive, production-ready news aggregator website 
-focused on Artificial Intelligence. The system must crawl articles from a curated list of AI news 
-sources—including The Register (specifically from https://www.theregister.com/software/ai_ml/, 
-where sample content includes headlines like “AIs have a favorite number, and it's not 42” 
-published on “30 Jun 2025”)—and store each article as a uniquely named markdown file (YYYY-MM-DD-slug.md) 
-with YAML front matter containing title, URL, publication date, source, summary, and image URL.
+## Configured sources
 
-Implement robust deduplication (based on URL), automatic cleanup of articles older than 30 days, 
-and a responsive UI using Twig that displays articles in 240px-wide cards (max 12 per row) with 
-optional list view. Cards must intelligently adapt: if no summary is available (like The 
-Register’s sample article), the title should fill the entire card in larger font; if an image is 
-available, it should be used as a background with readability overlays.
-
-Provide a CLI script to trigger crawling manually or via cron, with comprehensive logging, 
-error handling (bypass failing sources), and built-in rate limiting to avoid 429 errors 
-(using delays, jitter, and Retry-After header respect). Support dark/light themes, pagination 
-(20 articles per page default), and user-configurable items per page. Ensure all CSS is external, 
-and selectors support wildcards/partial matches for resilient scraping.
-
-The final deliverable should be a maintainable, well-documented codebase ready for deployment, 
-with all components (models, services, controllers, templates, CLI) fully integrated and tested. "
+FutureTools.IO, Analytics India Magazine, The Register, ZDNet, Tom's Hardware, TechCrunch, The Verge, Wired, Ars Technica, IEEE Spectrum, Synced, MarkTechPost, Towards AI, DeepLearning.AI, Google AI Blog, The Gradient, NVIDIA Blog, and KDnuggets.
 
 ## License
-MIT License
+
+MIT

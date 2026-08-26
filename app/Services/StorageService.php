@@ -20,21 +20,38 @@ class StorageService
 
     public function saveArticle(Article $article): bool
     {
-        $fileName = $article->getFileName();
-        $filePath = $this->storagePath . '/' . $fileName;
-
-        // Check if article already exists (deduplication)
-        if ($this->articleExists($article->url)
-            || $this->articleExistsBySlug($article->slug)
-        ) {
-            return false;
+        $lockHandle = fopen($this->storagePath . '/.storage.lock', 'c');
+        if ($lockHandle === false) {
+            throw new \RuntimeException('Unable to open the article storage lock.');
         }
 
-        // Write article to file
-        $markdown = $article->toMarkdown();
-        $result = file_put_contents($filePath, $markdown);
+        $temporaryPath = null;
+        try {
+            if (!flock($lockHandle, LOCK_EX)) {
+                throw new \RuntimeException('Unable to lock article storage.');
+            }
 
-        return $result !== false;
+            if (!$this->prepareUniqueArticle($article)) {
+                return false;
+            }
+
+            $filePath = $this->storagePath . '/' . $article->getFileName();
+            $temporaryPath = tempnam($this->storagePath, '.article-');
+            if ($temporaryPath === false
+                || file_put_contents($temporaryPath, $article->toMarkdown(), LOCK_EX) === false
+                || !rename($temporaryPath, $filePath)
+            ) {
+                throw new \RuntimeException('Unable to save article atomically.');
+            }
+            $temporaryPath = null;
+            return true;
+        } finally {
+            if (is_string($temporaryPath) && file_exists($temporaryPath)) {
+                unlink($temporaryPath);
+            }
+            flock($lockHandle, LOCK_UN);
+            fclose($lockHandle);
+        }
     }
 
     public function articleExists(string $url): bool
@@ -65,10 +82,29 @@ class StorageService
         return false;
     }
 
+    private function prepareUniqueArticle(Article $candidate): bool
+    {
+        $existingSlugs = [];
+        foreach (glob($this->storagePath . '/*.md') ?: [] as $file) {
+            $article = Article::fromMarkdownFile($file);
+            if (!$article) {
+                continue;
+            }
+            if (hash_equals($article->url, $candidate->url)) {
+                return false;
+            }
+            $existingSlugs[$article->slug] = true;
+        }
+
+        if (isset($existingSlugs[$candidate->slug])) {
+            $candidate->slug .= '-' . substr(hash('sha256', $candidate->url), 0, 8);
+        }
+
+        return true;
+    }
+
     public function getPaginatedArticles(int $page = 1, int $perPage = 20): array
     {
-        $this->cleanupOldArticles();
-
         $files = glob($this->storagePath . '/*.md');
         $articles = [];
 
@@ -130,19 +166,17 @@ class StorageService
         $files = glob($this->storagePath . '/*.md');
 
         foreach ($files as $file) {
-            if (strpos(basename($file), $slug) !== false) {
-                $article = Article::fromMarkdownFile($file);
-                if ($article) {
-                    return [
-                        'title' => $article->title,
-                        'url' => $article->url,
-                        'source' => $article->source,
-                        'published_at' => $article->publishedAt,
-                        'summary' => $article->summary,
-                        'content' => $article->content,
-                        'slug' => $article->slug
-                    ];
-                }
+            $article = Article::fromMarkdownFile($file);
+            if ($article && hash_equals($article->slug, $slug)) {
+                return [
+                    'title' => $article->title,
+                    'url' => $article->url,
+                    'source' => $article->source,
+                    'published_at' => $article->publishedAt,
+                    'summary' => $article->summary,
+                    'content' => $article->content,
+                    'slug' => $article->slug
+                ];
             }
         }
 
@@ -161,15 +195,18 @@ class StorageService
         foreach ($files as $file) {
             $article = Article::fromMarkdownFile($file);
             if ($article) {
-                $publishedDate = new \DateTime($article->publishedAt);
-                if ($publishedDate < $cutoffDate) {
-                    unlink($file);
-                    $deletedCount++;
+                try {
+                    $publishedDate = new \DateTime($article->publishedAt);
+                    if ($publishedDate < $cutoffDate && unlink($file)) {
+                        $deletedCount++;
+                    }
+                } catch (\Exception $e) {
+                    error_log('Skipping article with invalid publication date: ' . basename($file));
                 }
             }
         }
 
-        if ($_ENV['APP_DEBUG'] === 'true') {
+        if (filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
             error_log("Cleaned up {$deletedCount} old articles");
         }
     }
@@ -192,7 +229,7 @@ class StorageService
         try {
             $deletedFiles += $this->deleteDirectoryContents($cacheDir);
             
-            if ($_ENV['APP_DEBUG'] === 'true') {
+            if (filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
                 error_log("Cleared cache: {$deletedFiles} files deleted");
             }
 
@@ -252,8 +289,6 @@ class StorageService
         if (empty(trim($query))) {
             return $this->getPaginatedArticles($page, $perPage);
         }
-
-        $this->cleanupOldArticles();
 
         $files = glob($this->storagePath . '/*.md');
         $articles = [];

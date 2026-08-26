@@ -3,26 +3,49 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-    <div class="article-detail">
+    <article class="article-detail" data-article-reader>
         <a href="/" class="back-link">← Back to all articles</a>
 
-        <h1>{{ article.title }}</h1>
+        <h1 data-reader-title>{{ article.title }}</h1>
 
         <div class="article-meta-detail">
             <span class="article-source">{{ article.source }}</span>
-            <span class="article-date">{{ article.published_at|date("F j, Y \a\\t g:i A") }}</span>
+            <time class="article-date" datetime="{{ article.published_at|date('c') }}">{{ article.published_at|date("F j, Y \a\\t g:i A") }}</time>
         </div>
 
-        {% if article.summary %}
-            <p class="article-summary">{{ article.summary }}</p>
-        {% endif %}
+        <section class="reader-tools" aria-labelledby="readerToolsTitle">
+            <div class="reader-tools-copy">
+                <h2 id="readerToolsTitle">Listen to this article</h2>
+                <p>Use your browser’s voice at a pace that feels comfortable.</p>
+            </div>
+            <div class="reader-controls">
+                <button id="speechPlayBtn" class="reader-btn reader-btn-primary" type="button">Listen</button>
+                <button id="speechPauseBtn" class="reader-btn" type="button" disabled>Pause</button>
+                <button id="speechStopBtn" class="reader-btn" type="button" disabled>Stop</button>
+                <label class="speech-rate-label" for="speechRate">Speed</label>
+                <select id="speechRate" class="speech-rate">
+                    <option value="0.8">0.8×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="1.2">1.2×</option>
+                    <option value="1.5">1.5×</option>
+                    <option value="2">2×</option>
+                </select>
+            </div>
+            <p id="speechStatus" class="speech-status" role="status" aria-live="polite">Ready to listen.</p>
+        </section>
 
-        <div class="article-content-detail">
-            {{ article.content|nl2br }}
+        <div class="article-reading-content" id="articleReaderText">
+            {% if article.summary %}
+                <p class="article-detail-summary" data-reader-summary>{{ article.summary }}</p>
+            {% endif %}
+
+            <div class="article-content-detail" data-reader-content>
+                {{ article.content|nl2br }}
+            </div>
         </div>
 
-        <p>
-            <a href="{{ article.url }}" target="_blank" rel="noopener" class="back-link">Read original article</a>
+        <p class="article-original-link">
+            <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer" class="back-link">Read original article</a>
         </p>
-    </div>
+    </article>
 {% endblock %}

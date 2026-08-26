@@ -29,21 +29,23 @@ class Article
         $this->summary = $summary;
         $this->content = $content;
         $this->imageUrl = $imageUrl; // Initialize image URL
-        $this->slug = $this->generateSlug($title);
+        $this->slug = $this->generateSlug($title, $url);
     }
 
-    private function generateSlug(string $title): string
+    private function generateSlug(string $title, string $url): string
     {
-        // Convert to lowercase
-        $slug = strtolower($title);
-
-        // Remove special characters
+        $slug = trim($title);
+        if (function_exists('iconv')) {
+            $transliterated = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $slug);
+            if (is_string($transliterated)) {
+                $slug = $transliterated;
+            }
+        }
+        $slug = strtolower($slug);
         $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+        $slug = substr(trim((string)$slug, '-'), 0, 120);
 
-        // Remove leading and trailing hyphens
-        $slug = trim($slug, '-');
-
-        return $slug;
+        return $slug !== '' ? $slug : 'article-' . substr(hash('sha256', $url), 0, 12);
     }
 
     public function getFileName(): string

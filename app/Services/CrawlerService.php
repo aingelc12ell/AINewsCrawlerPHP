@@ -7,6 +7,9 @@ use DateTime;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Psr7\Uri;
+use GuzzleHttp\Psr7\UriResolver;
+use Psr\Http\Message\ResponseInterface;
 use Symfony\Component\DomCrawler\Crawler;
 
 class CrawlerService
@@ -20,15 +23,22 @@ class CrawlerService
     private $maxRequestsPerMinute;
     private $consecutiveFailures    = 0;
     private $maxConsecutiveFailures = 3;
+    private UrlSafetyService $urlSafety;
+    private int $requestDelayMicroseconds;
 
     public function __construct()
     {
-        $this->maxRequestsPerMinute = intval($_ENV['MAX_REQUESTS_PER_MINUTE'] ?? 30);
+        $this->maxRequestsPerMinute = max(1, intval($_ENV['MAX_REQUESTS_PER_MINUTE'] ?? 30));
+        $this->requestDelayMicroseconds = max(0, intval($_ENV['CRAWL_DELAY_BETWEEN_REQUESTS'] ?? 0));
         $this->requestStartTime = microtime(true);
+        $this->urlSafety = new UrlSafetyService();
+
+        $timeout = max(1, intval($_ENV['CRAWL_TIMEOUT'] ?? 15));
 
         $config = [
-            'timeout'         => 15,
-            'connect_timeout' => 10,
+            'timeout'         => $timeout,
+            'connect_timeout' => min(10, $timeout),
+            'http_errors'     => false,
             'headers'         => [
                 'User-Agent' => $_ENV['HTTP_USER_AGENT'] ?? 'AI News Aggregator Bot 1.0 (+https://yourdomain.com/bot)',
             ],
@@ -37,13 +47,29 @@ class CrawlerService
         // SSL certificate verification configuration
         $sslVerify = $_ENV['SSL_VERIFY'] ?? 'true';
 
-        if ($sslVerify === 'false' || $sslVerify === false || $sslVerify === '0') {
+        if (is_string($sslVerify)
+            && !in_array(strtolower($sslVerify), ['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'], true)
+            && file_exists($sslVerify)
+        ) {
+            $config['verify'] = $sslVerify;
+            error_log("Using custom CA bundle: " . $sslVerify);
+        } elseif (!filter_var($sslVerify, FILTER_VALIDATE_BOOLEAN)) {
             $config['verify'] = false;
             error_log("WARNING: SSL certificate verification is disabled");
         }
-        elseif ($sslVerify !== 'true' && file_exists($sslVerify)) {
-            $config['verify'] = $sslVerify;
-            error_log("Using custom CA bundle: " . $sslVerify);
+
+        $proxy = [];
+        if (!empty($_ENV['HTTP_PROXY'])) {
+            $proxy['http'] = $_ENV['HTTP_PROXY'];
+        }
+        if (!empty($_ENV['HTTPS_PROXY'])) {
+            $proxy['https'] = $_ENV['HTTPS_PROXY'];
+        }
+        if (!empty($_ENV['NO_PROXY'])) {
+            $proxy['no'] = array_map('trim', explode(',', $_ENV['NO_PROXY']));
+        }
+        if ($proxy !== []) {
+            $config['proxy'] = $proxy;
         }
 
         $this->httpClient = new Client($config);
@@ -139,74 +165,11 @@ class CrawlerService
             }
 
             echo "  Fetching: {$url}\n";
-
-            // Enforce rate limiting
-            $this->enforceRateLimit();
-
-            // Make HTTP request with error handling
-            try {
-                $response = $this->httpClient->get($url);
-
-                // Check for 429 Too Many Requests
-                if ($response->getStatusCode() == 429) {
-                    // Extract retry-after header if available
-                    $retryAfter = $response->getHeader('Retry-After');
-                    $waitTime = !empty($retryAfter) ? (int)$retryAfter[0] : 60;
-
-                    echo "  ⚠️  429 Too Many Requests - waiting {$waitTime} seconds...\n";
-                    sleep($waitTime);
-
-                    // Retry the request
-                    $response = $this->httpClient->get($url);
-                }
-
-                // Check if response is successful
-                if ($response->getStatusCode() !== 200) {
-                    throw new Exception("HTTP {$response->getStatusCode()}: " . $response->getReasonPhrase());
-                }
-
-                $html = (string)$response->getBody();
-
-                if (empty($html)) {
-                    throw new Exception("Empty response received");
-                }
-            } catch (RequestException $e) {
-                // Handle 429 errors specifically
-                if ($e->getCode() == 429 || strpos($e->getMessage(), '429') !== false) {
-                    echo "  ⚠️  429 Too Many Requests error detected\n";
-
-                    // Extract retry-after from exception if possible
-                    $waitTime = 60; // Default wait time
-
-                    if (method_exists($e, 'getResponse') && $e->getResponse()) {
-                        $retryAfter = $e->getResponse()->getHeader('Retry-After');
-                        if (!empty($retryAfter)) {
-                            $waitTime = (int)$retryAfter[0];
-                        }
-                    }
-
-                    echo "  ⏳ Waiting {$waitTime} seconds before retrying...\n";
-                    $this->applyRandomizedDelay($waitTime);
-
-                    // Retry once
-                    try {
-                        $response = $this->httpClient->get($url);
-                        $html = (string)$response->getBody();
-                    } catch (Exception $retryException) {
-                        throw new Exception("Retry failed: " . $retryException->getMessage());
-                    }
-                }
-                // Handle SSL certificate error specifically
-                elseif (strpos($e->getMessage(), 'SSL certificate problem') !== false) {
-                    throw new Exception(
-                        "SSL Certificate Error: " . $e->getMessage() . ". Check your SSL_VERIFY setting in .env file."
-                    );
-                }
-                else {
-                    throw new Exception("HTTP request failed: " . $e->getMessage());
-                }
-            } catch (Exception $e) {
-                throw new Exception("Failed to fetch page: " . $e->getMessage());
+            $allowedHosts = $this->getAllowedHosts($source);
+            $response = $this->requestWithRetry($url, $allowedHosts);
+            $html = (string)$response->getBody();
+            if ($html === '') {
+                throw new Exception('Empty response received');
             }
 
             // Parse HTML
@@ -234,7 +197,7 @@ class CrawlerService
                 )
             );
 
-            $aggressive = $_ENV['CRAWL_AGGRESSIVE'] ?? false;
+            $aggressive = filter_var($_ENV['CRAWL_AGGRESSIVE'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $articleCount = $aggressive ? $articleNodes->count() : $articleCount;
 
             echo "  Found {$articleNodes->count()} articles, processing {$articleCount}...\n";
@@ -278,8 +241,6 @@ class CrawlerService
                 $delayBetweenArticles = intval($_ENV['CRAWL_DELAY_BETWEEN_ARTICLES'] ?? 500000);
                 $this->applyDelay($delayBetweenArticles);
 
-                // Enforce rate limiting
-                $this->enforceRateLimit();
             }
         } catch (Exception $e) {
             $stats['errors']++;
@@ -294,9 +255,14 @@ class CrawlerService
         $currentTime = microtime(true);
         $elapsedTime = $currentTime - $this->requestStartTime;
 
-        // If we've made too many requests in the last minute
+        if ($elapsedTime >= 60) {
+            $this->requestCount = 0;
+            $this->requestStartTime = $currentTime;
+            $elapsedTime = 0;
+        }
+
         if ($this->requestCount >= $this->maxRequestsPerMinute && $elapsedTime < 60) {
-            $sleepTime = 60 - $elapsedTime;
+            $sleepTime = (int)ceil(60 - $elapsedTime);
             echo "  ⏸️  Rate limit approaching - pausing for " . round($sleepTime, 1) . " seconds...\n";
             sleep($sleepTime);
 
@@ -305,16 +271,107 @@ class CrawlerService
             $this->requestStartTime = microtime(true);
         }
 
-        // Increment request counter
         $this->requestCount++;
+    }
+
+    /**
+     * @param string[] $allowedHosts
+     * @param array<string, mixed> $options
+     */
+    private function requestWithRetry(string $url, array $allowedHosts, array $options = []): ResponseInterface
+    {
+        $response = $this->requestUrl($url, $allowedHosts, $options);
+        if ($response->getStatusCode() === 429) {
+            $waitSeconds = $this->parseRetryAfter($response->getHeaderLine('Retry-After'));
+            echo "  ⚠️  429 Too Many Requests - waiting {$waitSeconds} seconds before retrying...\n";
+            sleep($waitSeconds);
+            $response = $this->requestUrl($url, $allowedHosts, $options);
+        }
+
+        if ($response->getStatusCode() < 200 || $response->getStatusCode() >= 300) {
+            throw new Exception("HTTP {$response->getStatusCode()}: " . $response->getReasonPhrase());
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param string[] $allowedHosts
+     * @param array<string, mixed> $options
+     */
+    private function requestUrl(string $url, array $allowedHosts, array $options): ResponseInterface
+    {
+        $this->urlSafety->assertSafeUrl($url, $allowedHosts);
+        $this->enforceRateLimit();
+        if ($this->requestDelayMicroseconds > 0) {
+            $this->applyRandomizedDelay($this->requestDelayMicroseconds);
+        }
+
+        $options['allow_redirects'] = [
+            'max' => 5,
+            'strict' => true,
+            'referer' => false,
+            'on_redirect' => function ($request, $response, $uri) use ($allowedHosts): void {
+                $this->urlSafety->assertSafeUrl((string)$uri, $allowedHosts);
+            },
+        ];
+
+        try {
+            return $this->httpClient->get($url, $options);
+        } catch (RequestException $e) {
+            if (str_contains($e->getMessage(), 'SSL certificate problem')) {
+                throw new Exception(
+                    'SSL certificate validation failed. Verify SSL_VERIFY and the configured CA bundle.',
+                    0,
+                    $e
+                );
+            }
+            throw new Exception('HTTP request failed: ' . $e->getMessage(), 0, $e);
+        }
+    }
+
+    private function parseRetryAfter(string $retryAfter): int
+    {
+        $retryAfter = trim($retryAfter);
+        if ($retryAfter !== '' && ctype_digit($retryAfter)) {
+            return max(1, min((int)$retryAfter, 300));
+        }
+
+        if ($retryAfter !== '') {
+            $timestamp = strtotime($retryAfter);
+            if ($timestamp !== false) {
+                return max(1, min($timestamp - time(), 300));
+            }
+        }
+
+        return 60;
+    }
+
+    /** @return string[] */
+    private function getAllowedHosts(array $source): array
+    {
+        $host = parse_url($source['base_url'], PHP_URL_HOST);
+        $allowedHosts = is_string($host) && $host !== '' ? [$host] : [];
+        foreach ((array)($source['allowed_hosts'] ?? []) as $allowedHost) {
+            if (is_string($allowedHost) && $allowedHost !== '') {
+                $allowedHosts[] = $allowedHost;
+            }
+        }
+
+        return array_values(array_unique($allowedHosts));
+    }
+
+    private function resolveUrl(string $baseUrl, string $relativeOrAbsoluteUrl): string
+    {
+        return (string)UriResolver::resolve(new Uri($baseUrl), new Uri(trim($relativeOrAbsoluteUrl)));
     }
 
     private function applyRandomizedDelay($baseDelayMicroseconds, $jitterPercentage = 0.3)
     {
         if ($baseDelayMicroseconds > 0) {
             // Add jitter (random variation) to avoid detectable patterns
-            $jitter = $baseDelayMicroseconds * $jitterPercentage;
-            $randomDelay = $baseDelayMicroseconds + rand(-$jitter, $jitter);
+            $jitter = (int)round($baseDelayMicroseconds * $jitterPercentage);
+            $randomDelay = $baseDelayMicroseconds + random_int(-$jitter, $jitter);
             $randomDelay = max(0, $randomDelay); // Ensure delay is not negative
 
             usleep((int)$randomDelay);
@@ -447,15 +504,9 @@ class CrawlerService
                 throw new Exception("Empty URL");
             }
 
-            // Make sure URL is absolute
-            if ($url && strpos($url, 'http') !== 0) {
-                if (strpos($url, '/') === 0) {
-                    $url = $source['base_url'] . $url;
-                }
-                else {
-                    $url = $source['base_url'] . '/' . $url;
-                }
-            }
+            $url = $this->resolveUrl($source['base_url'], $url);
+            $allowedHosts = $this->getAllowedHosts($source);
+            $this->urlSafety->assertSafeUrl($url, $allowedHosts);
             // Extract image URL
             $imageUrl = '';
             if (!empty($selectors['image'])) {
@@ -467,16 +518,13 @@ class CrawlerService
                             $imageElements->attr('data-lazy-src') ?:
                                 $imageElements->attr('data-original') ?: '';
 
-                    // Make image URL absolute if it's relative
-                    if ($imageUrl && strpos($imageUrl, 'http') !== 0) {
-                        if (strpos($imageUrl, '//') === 0) {
-                            $imageUrl = 'https:' . $imageUrl;
-                        }
-                        elseif (strpos($imageUrl, '/') === 0) {
-                            $imageUrl = $source['base_url'] . $imageUrl;
-                        }
-                        else {
-                            $imageUrl = $source['base_url'] . '/' . $imageUrl;
+                    if ($imageUrl !== '') {
+                        try {
+                            $imageUrl = $this->resolveUrl($source['base_url'], $imageUrl);
+                            $this->urlSafety->assertSafeUrl($imageUrl);
+                        } catch (Exception $e) {
+                            error_log("Discarding unsafe image URL from {$source['name']}: " . $e->getMessage());
+                            $imageUrl = '';
                         }
                     }
                 }
@@ -583,7 +631,7 @@ class CrawlerService
             }
 
             // Fetch full content (optional - could be done later)
-            $content = $this->fetchFullContent($url) ?: $summary;
+            $content = $this->fetchFullContent($url, $allowedHosts) ?: $summary;
 
             return new Article(
                 $title,
@@ -600,15 +648,11 @@ class CrawlerService
         }
     }
 
-    private function fetchFullContent(string $url): string
+    /** @param string[] $allowedHosts */
+    private function fetchFullContent(string $url, array $allowedHosts): string
     {
         try {
-            $response = $this->httpClient->get($url, ['timeout' => 8]);
-
-            // Check if response is successful
-            if ($response->getStatusCode() !== 200) {
-                throw new Exception("HTTP {$response->getStatusCode()}");
-            }
+            $response = $this->requestWithRetry($url, $allowedHosts, ['timeout' => 8]);
 
             $html = (string)$response->getBody();
 
