@@ -15,18 +15,18 @@
             <a class="site-title" href="/">SystemsByBit: AI News</a>
             <p class="subtitle">Independent AI reporting, gathered in one readable place</p>
         </div>
+        <form method="GET" action="/" class="search-form">
+            <label class="visually-hidden" for="articleSearch">Search articles</label>
+            <input type="text" name="q" placeholder="Search articles..."
+                   value="{{ search_query ?? '' }}"
+                   class="search-input" id="articleSearch" maxlength="200" autocomplete="off">
+            <button type="submit" class="search-btn">Search</button>
+            {% if search_query is defined and search_query|trim != '' %}
+                <a href="/" class="clear-search">Clear</a>
+            {% endif %}
+        </form>
         <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false">Use dark theme</button>
     </div>
-    <form method="GET" action="/" class="search-form">
-        <label class="visually-hidden" for="articleSearch">Search articles</label>
-        <input type="text" name="q" placeholder="Search articles..."
-               value="{{ search_query ?? '' }}"
-               class="search-input" id="articleSearch" maxlength="200" autocomplete="off">
-        <button type="submit" class="search-btn">Search</button>
-        {% if search_query is defined and search_query|trim != '' %}
-            <a href="/" class="clear-search">Clear Search</a>
-        {% endif %}
-    </form>
 </header>
 
 <main id="main-content" tabindex="-1">

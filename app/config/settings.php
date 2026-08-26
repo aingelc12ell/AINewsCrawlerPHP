@@ -17,10 +17,11 @@ return function (App $app) {
         $loader = new FilesystemLoader(__DIR__ . '/../../templates');
         $debug = filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $isTest = ($_ENV['APP_ENV'] ?? '') === 'test';
+        $autoReload = filter_var($_ENV['TWIG_AUTO_RELOAD'] ?? true, FILTER_VALIDATE_BOOLEAN);
         $twig = new Environment($loader, [
             'cache' => $isTest ? false : __DIR__ . '/../../storage/cache',
             'debug' => $debug,
-            'auto_reload' => $debug || $isTest,
+            'auto_reload' => $autoReload || $debug || $isTest,
             'autoescape' => 'html',
             'strict_variables' => false,
         ]);
