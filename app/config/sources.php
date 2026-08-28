@@ -4,11 +4,11 @@ return [
 
     [
         'name'      => 'FutureTools.IO',
-        'base_url'  => 'https://www.futuretools.io',
+        'base_url'  => 'https://futuretools.io',
         'endpoint'  => '/news',
         'selectors' => [
-            'articles'    => 'div[role="listitem"]',
-            'title'       => 'a',
+            'articles'    => 'div.items-start',
+            'title'       => 'p.leading-snug',
             'url'         => 'a',
             'summary'     => '',
             'date'        => 'div.news-item div:first',
@@ -23,9 +23,9 @@ return [
         'endpoint'  => '/category/artificial-intelligence/',
         'selectors' => [
             'articles'    => 'article',
-            'title'       => 'h3 a',
-            'url'         => 'h3 a',
-            'summary'     => 'div[class*="excerpt"] p',
+            'title'       => 'h2',
+            'url'         => 'a',
+            'summary'     => 'p',
             'date'        => 'span[class="elementor-post-date"]',
             'date_format' => 'd/m/Y',
             'image'       => 'img',
@@ -38,12 +38,12 @@ return [
         'endpoint'  => '/software/ai_ml/',
         'selectors' => [
             'articles'    => 'article',
-            'title'       => 'h4',
-            'url'         => 'a, a[class*="story_link"]',
-            'summary'     => '[class*="standfirst"]',
+            'title'       => 'h2',
+            'url'         => 'a[itemprop="url"]',
+            'summary'     => 'p[itemprop="description"]',
             'date'        => '[class*="time_stamp"]',
             'date_format' => 'j M H:i',
-            'image'       => 'img',
+            'image'       => 'source[type="image/jpeg"]',
         ],
     ],
 
@@ -52,8 +52,8 @@ return [
         'base_url'  => 'https://www.zdnet.com',
         'endpoint'  => '/topic/artificial-intelligence/',
         'selectors' => [
-            'articles'    => 'div[class*="c-listingDefault_item"]',
-            'title'       => 'h3, h3[class*="c-listingDefault_title"]',
+            'articles'    => 'div.c-listingDefault_item',
+            'title'       => 'h3.c-listingDefault_title',
             'url'         => 'a',
             'summary'     => 'span[class*="c-listingDefault_description"]',
             'date'        => 'time',
@@ -210,10 +210,10 @@ return [
         'endpoint'  => '/blog/',
         'selectors' => [
             'articles'    => 'ul.blog-posts-grid__cards li',
-            'title'       => 'span.headline-5',
+            'title'       => 'span.headline-6',
             'url'         => 'a',
             'summary'     => 'span.headline-3',
-            'date'        => 'p.glue-label',
+            'date'        => 'p.label',
             'date_format' => 'F j, Y',
             'image'       => 'img',
         ],

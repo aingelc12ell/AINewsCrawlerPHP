@@ -9,7 +9,7 @@
         <h1 data-reader-title>{{ article.title }}</h1>
 
         <div class="article-meta-detail">
-            <span class="article-source">{{ article.source }}</span>
+            <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer" class="article-source">{{ article.source }}</a>
             <time class="article-date" datetime="{{ article.published_at|date('c') }}">{{ article.published_at|date("F j, Y \a\\t g:i A") }}</time>
         </div>
 

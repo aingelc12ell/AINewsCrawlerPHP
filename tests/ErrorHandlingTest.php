@@ -9,11 +9,13 @@ use Slim\Psr7\Factory\ServerRequestFactory;
 
 final class ErrorHandlingTest extends TestCase
 {
+    private string $testRoot;
     private string $storagePath;
 
     protected function setUp(): void
     {
-        $this->storagePath = sys_get_temp_dir() . '/ai-news-app-' . bin2hex(random_bytes(6));
+        $this->testRoot = sys_get_temp_dir() . '/ai-news-app-' . bin2hex(random_bytes(6));
+        $this->storagePath = $this->testRoot . '/articles';
         mkdir($this->storagePath, 0755, true);
 
         $_ENV['APP_NAME'] = 'AI News Test';
@@ -25,7 +27,7 @@ final class ErrorHandlingTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->removeDirectory($this->storagePath);
+        $this->removeDirectory($this->testRoot);
     }
 
     public function testUnknownRouteUsesSafeDefaultPageAndSecurityHeaders(): void
@@ -61,7 +63,7 @@ final class ErrorHandlingTest extends TestCase
         self::assertSame('/?q=AI%20safety', $response->getHeaderLine('Location'));
     }
 
-    public function testUnexpectedHostIsRejectedAndMaintenanceRouteIsNotPublic(): void
+    public function testUnexpectedHostIsRejected(): void
     {
         $app = $this->createApp();
         $factory = new ServerRequestFactory();
@@ -70,14 +72,26 @@ final class ErrorHandlingTest extends TestCase
             $factory->createServerRequest('GET', 'http://attacker.example/')
         );
         self::assertSame(400, $badHostResponse->getStatusCode());
-
-        $maintenanceResponse = $app->handle(
-            $factory->createServerRequest('GET', 'http://localhost/clear-cache')
-        );
-        self::assertSame(404, $maintenanceResponse->getStatusCode());
     }
 
-    public function testPopulatedReaderUsesInternalDetailRouteAndCanonicalMetadata(): void
+    public function testClearCacheRouteDeletesCachedFilesAndRedirectsHome(): void
+    {
+        $cachePath = $this->testRoot . '/cache';
+        mkdir($cachePath, 0755, true);
+        $cachedFile = $cachePath . '/compiled-template.php';
+        file_put_contents($cachedFile, 'cached');
+
+        $response = $this->createApp()->handle(
+            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/clear-cache')
+        );
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/', $response->getHeaderLine('Location'));
+        self::assertSame('no-store', $response->getHeaderLine('Cache-Control'));
+        self::assertFileDoesNotExist($cachedFile);
+    }
+
+    public function testArticleListUsesRetainedSourceUrlAndCanonicalMetadata(): void
     {
         $article = new Article(
             'AI systems become more reliable',
@@ -95,7 +109,13 @@ final class ErrorHandlingTest extends TestCase
         $homeBody = (string)$home->getBody();
         self::assertSame(200, $home->getStatusCode());
         self::assertStringContainsString('href="/css/style.css"', $homeBody);
-        self::assertStringContainsString('href="/article/' . $article->slug . '"', $homeBody);
+        self::assertSame(
+            2,
+            substr_count(
+                $homeBody,
+                'href="https://example.com/reliable-ai" target="_blank" rel="noopener noreferrer"',
+            )
+        );
         self::assertStringContainsString('aria-pressed="true">Grid', $homeBody);
         self::assertStringContainsString('id="cardImageToggle"', $homeBody);
 
@@ -108,6 +128,10 @@ final class ErrorHandlingTest extends TestCase
         self::assertStringContainsString('src="/js/js.js"', $detailBody);
         self::assertStringContainsString('id="speechPlayBtn"', $detailBody);
         self::assertStringContainsString('data-reader-content', $detailBody);
+        self::assertStringContainsString(
+            '<a href="https://example.com/reliable-ai" target="_blank" rel="noopener noreferrer" class="article-source">Example</a>',
+            $detailBody
+        );
 
         $sitemap = $app->handle($factory->createServerRequest('GET', 'http://localhost/sitemap.xml'));
         self::assertStringContainsString(
@@ -117,6 +141,39 @@ final class ErrorHandlingTest extends TestCase
 
         $robots = $app->handle($factory->createServerRequest('GET', 'http://localhost/robots.txt'));
         self::assertStringContainsString('Sitemap: http://localhost/sitemap.xml', (string)$robots->getBody());
+    }
+
+    public function testReaderFiltersArticlesBySelectedSource(): void
+    {
+        $storage = new StorageService($this->storagePath);
+        $alpha = new Article(
+            'Alpha source article',
+            'https://alpha.example/article',
+            'Source Alpha',
+            '2026-08-25 12:00:00'
+        );
+        $beta = new Article(
+            'Beta source article',
+            'https://beta.example/article',
+            'Source Beta',
+            '2026-08-24 12:00:00'
+        );
+        self::assertTrue($storage->saveArticle($alpha));
+        self::assertTrue($storage->saveArticle($beta));
+
+        $response = $this->createApp()->handle(
+            (new ServerRequestFactory())->createServerRequest(
+                'GET',
+                'http://localhost/?source=' . rawurlencode('Source Beta')
+            )
+        );
+        $body = (string)$response->getBody();
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertStringContainsString('id="sourceSelect"', $body);
+        self::assertStringContainsString('value="Source Beta" selected', $body);
+        self::assertStringContainsString('href="https://beta.example/article"', $body);
+        self::assertStringNotContainsString('href="https://alpha.example/article"', $body);
     }
 
     private function createApp()

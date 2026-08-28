@@ -51,15 +51,14 @@ final class StorageServiceTest extends TestCase
         self::assertNull($this->storage->getArticleBySlug('safer-ai'));
     }
 
-    public function testDifferentUrlsWithTheSameTitleReceiveUniqueSlugs(): void
+    public function testDifferentUrlsWithTheSameTitleAreDeduplicated(): void
     {
         $first = new Article('Shared headline', 'https://example.com/first', 'Example', '2026-08-25');
         $second = new Article('Shared headline', 'https://example.com/second', 'Example', '2026-08-25');
 
         self::assertTrue($this->storage->saveArticle($first));
-        self::assertTrue($this->storage->saveArticle($second));
-        self::assertNotSame($first->slug, $second->slug);
-        self::assertCount(2, glob($this->storagePath . '/*.md') ?: []);
+        self::assertFalse($this->storage->saveArticle($second));
+        self::assertCount(1, glob($this->storagePath . '/*.md') ?: []);
     }
 
     public function testListingDoesNotDeleteOldArticlesButExplicitCleanupDoes(): void
@@ -78,6 +77,32 @@ final class StorageServiceTest extends TestCase
 
         $this->storage->cleanupOldArticles();
         self::assertCount(0, glob($this->storagePath . '/*.md') ?: []);
+    }
+
+    public function testArticlesCanBeFilteredByAnAvailableSource(): void
+    {
+        self::assertTrue($this->storage->saveArticle(
+            new Article('Alpha report', 'https://alpha.example/report', 'Source Alpha', '2026-08-25')
+        ));
+        self::assertTrue($this->storage->saveArticle(
+            new Article('Beta report', 'https://beta.example/report', 'Source Beta', '2026-08-24')
+        ));
+        self::assertTrue($this->storage->saveArticle(
+            new Article('Alpha update', 'https://alpha.example/update', 'Source Alpha', '2026-08-23')
+        ));
+
+        self::assertSame(['Source Alpha', 'Source Beta'], $this->storage->getSources());
+
+        $filtered = $this->storage->getPaginatedArticles(1, 20, 'Source Alpha');
+        self::assertSame(2, $filtered['total']);
+        self::assertSame(
+            ['Alpha report', 'Alpha update'],
+            array_column($filtered['articles'], 'title')
+        );
+
+        $searched = $this->storage->searchArticles('report', 1, 20, 'Source Beta');
+        self::assertSame(1, $searched['total']);
+        self::assertSame('Beta report', $searched['articles'][0]['title']);
     }
 
     public function testNonLatinTitleGetsStableFallbackSlug(): void

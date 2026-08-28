@@ -64,6 +64,18 @@ function setupPerPageHandler() {
     });
 }
 
+function setupSourceFilter() {
+    const select = document.getElementById('sourceSelect');
+    if (!select) return;
+    select.addEventListener('change', () => {
+        if (typeof select.form?.requestSubmit === 'function') {
+            select.form.requestSubmit();
+        } else {
+            select.form?.submit();
+        }
+    });
+}
+
 let cardImageObserver;
 
 function loadCardBackgrounds() {
@@ -231,6 +243,7 @@ function setupTextToSpeech() {
 document.addEventListener('DOMContentLoaded', () => {
     setupViewToggle();
     setupPerPageHandler();
+    setupSourceFilter();
     setupCardBackgroundToggle();
     setupTextToSpeech();
     const searchInput = document.querySelector('.search-input');

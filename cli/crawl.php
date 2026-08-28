@@ -65,6 +65,7 @@ class CrawlCommand
 
         try {
             $stats = $this->crawlerService->crawlAllSources();
+            $this->storageService->clearCache();
 
             $endTime = microtime(true);
             $duration = round($endTime - $startTime, 2);

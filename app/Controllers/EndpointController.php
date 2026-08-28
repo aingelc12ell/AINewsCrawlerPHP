@@ -30,12 +30,22 @@ class EndpointController
         }
         $page = max(1, (int)($queryParams['page'] ?? 1));
         $perPage = max(12, min((int)($queryParams['per_page'] ?? $_ENV['PAGES_PER_PAGE'] ?? 20), 100));
+        $sources = $this->storageService->getSources();
+        $selectedSource = trim((string)($queryParams['source'] ?? ''));
+        if (!in_array($selectedSource, $sources, true)) {
+            $selectedSource = '';
+        }
 
         if (!empty($searchQuery)) {
-            $paginatedArticles = $this->storageService->searchArticles($searchQuery, $page, $perPage);
+            $paginatedArticles = $this->storageService->searchArticles(
+                $searchQuery,
+                $page,
+                $perPage,
+                $selectedSource
+            );
         }
         else {
-            $paginatedArticles = $this->storageService->getPaginatedArticles($page, $perPage);
+            $paginatedArticles = $this->storageService->getPaginatedArticles($page, $perPage, $selectedSource);
         }
 
         $response->getBody()->write(
@@ -43,6 +53,8 @@ class EndpointController
                 'articles'     => $paginatedArticles['articles'],
                 'pagination'   => $paginatedArticles,
                 'search_query' => $searchQuery, // Pass search query to template
+                'sources' => $sources,
+                'selected_source' => $selectedSource,
                 'title'        => $_ENV['APP_NAME'] . (!empty($searchQuery) ? " - {$searchQuery}" : ''),
             ])
         );
@@ -59,6 +71,28 @@ class EndpointController
             'stats'   => $result,
         ]));
         return $response->withHeader('Content-Type', 'application/json');
+    }
+
+    public function clearCache(Request $request, Response $response): Response
+    {
+        $result = $this->storageService->clearCache();
+
+        if (!$result['success']) {
+            $response->getBody()->write(json_encode([
+                'success' => false,
+                'message' => 'Cache could not be cleared',
+            ]));
+
+            return $response
+                ->withStatus(500)
+                ->withHeader('Content-Type', 'application/json')
+                ->withHeader('Cache-Control', 'no-store');
+        }
+
+        return $response
+            ->withStatus(303)
+            ->withHeader('Location', '/')
+            ->withHeader('Cache-Control', 'no-store');
     }
 
     public function search(Request $request, Response $response): Response

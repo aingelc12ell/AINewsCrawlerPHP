@@ -8,8 +8,8 @@ A lightweight AI-news reader and crawler built with Slim 4, Twig, Guzzle, and fi
 - Validates outbound destinations and redirects to prevent private-network requests
 - Uses TLS verification, timeouts, request pacing, per-minute limits, jitter, and `Retry-After`
 - Stores articles as Markdown with YAML front matter
-- Deduplicates by URL and slug and writes under an exclusive lock with atomic replacement
-- Provides search, pagination, grid/list views, article detail pages, and light/dark themes
+- Deduplicates by URL and title and writes under an exclusive lock with atomic replacement
+- Provides search, source filtering, pagination, grid/list views, article detail pages, and light/dark themes
 - Generates canonical `robots.txt` and sitemap responses from `APP_URL`
 - Cleans up expired articles from the CLI crawl workflow, not public page requests
 - Optionally sends crawl reports through SendGrid
@@ -48,8 +48,9 @@ Point Apache, IIS, or Nginx at `public/`. The included rewrite configurations se
 - `/article/{slug}` — locally stored article detail
 - `/readme` — rendered project documentation
 - `/sitemap.xml` and `/robots.txt` — canonical crawler metadata
+- `/clear-cache` — force-clears the Twig cache, then redirects to the home page
 
-Crawling and cache maintenance are intentionally not exposed as public HTTP endpoints.
+Crawling is not exposed as a public HTTP endpoint. The cache-clearing route is public and should be used only when a forced Twig recompilation is needed.
 
 ### Crawl from the CLI
 

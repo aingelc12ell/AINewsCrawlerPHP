@@ -89,6 +89,7 @@ return static function (): App {
     $app->get('/sitemap.xml', [EndpointController::class, 'sitemap']);
     $app->get('/robots.txt', [EndpointController::class, 'robots']);
     $app->get('/readme', [EndpointController::class, 'readme']);
+    $app->get('/clear-cache', [EndpointController::class, 'clearCache']);
     $app->get('/error/{code}', [EndpointController::class, 'error']);
 
     $app->add(function (

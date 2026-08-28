@@ -90,7 +90,10 @@ class StorageService
             if (!$article) {
                 continue;
             }
-            if (hash_equals($article->url, $candidate->url)) {
+            if (hash_equals($article->url, $candidate->url)
+                || hash_equals($article->title, $candidate->title)
+                || hash_equals($article->slug, $candidate->slug)
+            ) {
                 return false;
             }
             $existingSlugs[$article->slug] = true;
@@ -103,14 +106,32 @@ class StorageService
         return true;
     }
 
-    public function getPaginatedArticles(int $page = 1, int $perPage = 20): array
+    public function getSources(): array
+    {
+        $sources = [];
+
+        foreach (glob($this->storagePath . '/*.md') ?: [] as $file) {
+            $article = Article::fromMarkdownFile($file);
+            if ($article && trim($article->source) !== '') {
+                $sources[$article->source] = true;
+            }
+        }
+
+        $sources = array_keys($sources);
+        natcasesort($sources);
+
+        return array_values($sources);
+    }
+
+    public function getPaginatedArticles(int $page = 1, int $perPage = 20, string $source = ''): array
     {
         $files = glob($this->storagePath . '/*.md');
         $articles = [];
+        $source = trim($source);
 
         foreach ($files as $file) {
             $article = Article::fromMarkdownFile($file);
-            if ($article) {
+            if ($article && ($source === '' || strcasecmp($article->source, $source) === 0)) {
                 $articles[] = [
                     'title' => $article->title,
                     'url' => $article->url,
@@ -284,19 +305,20 @@ class StorageService
 
         return $deletedCount;
     }
-    public function searchArticles(string $query, int $page = 1, int $perPage = 20): array
+    public function searchArticles(string $query, int $page = 1, int $perPage = 20, string $source = ''): array
     {
         if (empty(trim($query))) {
-            return $this->getPaginatedArticles($page, $perPage);
+            return $this->getPaginatedArticles($page, $perPage, $source);
         }
 
         $files = glob($this->storagePath . '/*.md');
         $articles = [];
         $query = strtolower(trim($query));
+        $source = trim($source);
 
         foreach ($files as $file) {
             $article = Article::fromMarkdownFile($file);
-            if ($article) {
+            if ($article && ($source === '' || strcasecmp($article->source, $source) === 0)) {
                 // Search in title, summary, and content
                 $titleMatch = stripos($article->title, $query) !== false;
                 $summaryMatch = !empty($article->summary) && stripos($article->summary, $query) !== false;

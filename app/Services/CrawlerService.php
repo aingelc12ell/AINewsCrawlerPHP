@@ -630,8 +630,9 @@ class CrawlerService
                 }
             }
 
-            // Fetch full content (optional - could be done later)
-            $content = $this->fetchFullContent($url, $allowedHosts) ?: $summary;
+            // Fetch full content (optional - could be done later) :: stick to summary as the link will be used to fetch the full content
+            // $content = $this->fetchFullContent($url, $allowedHosts) ?: $summary;
+            $content = $summary;
 
             return new Article(
                 $title,
