@@ -18,8 +18,46 @@ class StorageService
         }
     }
 
+    /**
+     * Maximum age, in days, that a newly crawled article may have before it is rejected.
+     * Falls back to the retention window and can be disabled with 0.
+     */
+    private function maxArticleAgeInDays(): int
+    {
+        $configured = $_ENV['MAX_ARTICLE_AGE_DAYS'] ?? $_ENV['DELETE_OLDER_THAN_DAYS'] ?? 30;
+
+        return max(0, (int)$configured);
+    }
+
+    /**
+     * Articles published before the accepted window are never stored, so the crawler does not
+     * report them as saved only for the retention cleanup to remove them again.
+     */
+    public function isOutsideAcceptedWindow(string $publishedAt): bool
+    {
+        $days = $this->maxArticleAgeInDays();
+        if ($days === 0) {
+            return false;
+        }
+
+        try {
+            $publishedDate = new \DateTime($publishedAt);
+        } catch (\Exception $e) {
+            // An unparsable date cannot be judged, so the article is kept.
+            return false;
+        }
+
+        $cutoffDate = (new \DateTime())->modify("-{$days} days");
+
+        return $publishedDate < $cutoffDate;
+    }
+
     public function saveArticle(Article $article): bool
     {
+        if ($this->isOutsideAcceptedWindow($article->publishedAt)) {
+            return false;
+        }
+
         $lockHandle = fopen($this->storagePath . '/.storage.lock', 'c');
         if ($lockHandle === false) {
             throw new \RuntimeException('Unable to open the article storage lock.');
@@ -212,18 +250,19 @@ class StorageService
 
         $files = glob($this->storagePath . '/*.md');
         $deletedCount = 0;
+        $cutoffTimestamp = $cutoffDate->getTimestamp();
 
+        // Retention is measured from when the article was stored, not from its publication date,
+        // so a freshly crawled article with an old publication date is never removed straight away.
         foreach ($files as $file) {
-            $article = Article::fromMarkdownFile($file);
-            if ($article) {
-                try {
-                    $publishedDate = new \DateTime($article->publishedAt);
-                    if ($publishedDate < $cutoffDate && unlink($file)) {
-                        $deletedCount++;
-                    }
-                } catch (\Exception $e) {
-                    error_log('Skipping article with invalid publication date: ' . basename($file));
-                }
+            $storedAt = filemtime($file);
+            if ($storedAt === false) {
+                error_log('Skipping article with unreadable modification time: ' . basename($file));
+                continue;
+            }
+
+            if ($storedAt < $cutoffTimestamp && unlink($file)) {
+                $deletedCount++;
             }
         }
 

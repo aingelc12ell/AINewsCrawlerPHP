@@ -16,6 +16,8 @@ final class StorageServiceTest extends TestCase
         $this->storagePath = sys_get_temp_dir() . '/ai-news-storage-' . bin2hex(random_bytes(6));
         $this->storage = new StorageService($this->storagePath);
         $_ENV['APP_DEBUG'] = 'false';
+        $_ENV['DELETE_OLDER_THAN_DAYS'] = '30';
+        $_ENV['MAX_ARTICLE_AGE_DAYS'] = '30';
     }
 
     protected function tearDown(): void
@@ -61,22 +63,55 @@ final class StorageServiceTest extends TestCase
         self::assertCount(1, glob($this->storagePath . '/*.md') ?: []);
     }
 
-    public function testListingDoesNotDeleteOldArticlesButExplicitCleanupDoes(): void
+    public function testArticlesPublishedBeforeTheAcceptedWindowAreRejected(): void
     {
-        $_ENV['DELETE_OLDER_THAN_DAYS'] = '30';
         $article = new Article(
             'Historical AI article',
             'https://example.com/historical-ai',
             'Example',
+            (new \DateTime('-60 days'))->format('Y-m-d H:i:s')
+        );
+
+        self::assertTrue($this->storage->isOutsideAcceptedWindow($article->publishedAt));
+        self::assertFalse($this->storage->saveArticle($article));
+        self::assertCount(0, glob($this->storagePath . '/*.md') ?: []);
+    }
+
+    public function testTheAcceptedWindowCanBeDisabled(): void
+    {
+        $_ENV['MAX_ARTICLE_AGE_DAYS'] = '0';
+        $article = new Article(
+            'Archive import',
+            'https://example.com/archive-import',
+            'Example',
             '2020-01-01 12:00:00'
         );
-        self::assertTrue($this->storage->saveArticle($article));
 
-        self::assertCount(1, $this->storage->getPaginatedArticles()['articles']);
+        self::assertTrue($this->storage->saveArticle($article));
         self::assertCount(1, glob($this->storagePath . '/*.md') ?: []);
+    }
+
+    public function testCleanupUsesTheStorageTimeAndNotThePublicationDate(): void
+    {
+        $recentlyStored = new Article(
+            'Backdated but freshly crawled',
+            'https://example.com/backdated',
+            'Example',
+            (new \DateTime('-20 days'))->format('Y-m-d H:i:s')
+        );
+        self::assertTrue($this->storage->saveArticle($recentlyStored));
+
+        $staleFile = $this->storagePath . '/2026-08-25-stale.md';
+        copy(current(glob($this->storagePath . '/*.md') ?: []), $staleFile);
+        touch($staleFile, (new \DateTime('-90 days'))->getTimestamp());
+
+        self::assertCount(2, glob($this->storagePath . '/*.md') ?: []);
 
         $this->storage->cleanupOldArticles();
-        self::assertCount(0, glob($this->storagePath . '/*.md') ?: []);
+
+        $remaining = glob($this->storagePath . '/*.md') ?: [];
+        self::assertCount(1, $remaining);
+        self::assertSame($recentlyStored->getFileName(), basename($remaining[0]));
     }
 
     public function testArticlesCanBeFilteredByAnAvailableSource(): void

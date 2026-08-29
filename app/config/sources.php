@@ -2,7 +2,7 @@
 
 return [
 
-    [
+    /*[
         'name'      => 'FutureTools.IO',
         'base_url'  => 'https://futuretools.io',
         'endpoint'  => '/news',
@@ -15,7 +15,7 @@ return [
             'date_format' => 'm.d.y',
             'image'       => 'a img',
         ],
-    ],
+    ],*/
 
     [
         'name'      => 'Analytics India Magazine',
