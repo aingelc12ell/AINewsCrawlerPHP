@@ -221,7 +221,10 @@ class CrawlerService
                                     : "") . "\n";
                         }
                         else {
-                            echo "  ℹ Skipped (duplicate): "
+                            $reason = $this->storageService->isOutsideAcceptedWindow($article->publishedAt)
+                                ? 'too old'
+                                : 'duplicate';
+                            echo "  ℹ Skipped ({$reason}): "
                                  . substr($article->title, 0, 50)
                                  . (strlen($article->title) > 50
                                     ? "..."
@@ -359,6 +362,45 @@ class CrawlerService
         }
 
         return array_values(array_unique($allowedHosts));
+    }
+
+    /**
+     * Extract a publication date embedded in a URL path, e.g. /2025/06/30/slug
+     * or /2025/06/slug. Returns null when no plausible date is present.
+     */
+    private function extractDateFromUrl(string $url): ?string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+        if (!is_string($path) || $path === '') {
+            return null;
+        }
+
+        $currentYear = (int) date('Y');
+
+        if (preg_match('#/(\d{4})/(\d{1,2})/(\d{1,2})(?:/|$|[-_.])#', $path, $matches)) {
+            [, $year, $month, $day] = $matches;
+        } elseif (preg_match('#/(\d{4})/(\d{1,2})(?:/|$|[-_.])#', $path, $matches)) {
+            [, $year, $month] = $matches;
+            $day = '1';
+        } elseif (preg_match('#/(\d{4})-(\d{1,2})-(\d{1,2})(?:/|$|[-_.])#', $path, $matches)) {
+            [, $year, $month, $day] = $matches;
+        } else {
+            return null;
+        }
+
+        $year = (int) $year;
+        $month = (int) $month;
+        $day = (int) $day;
+
+        if ($year < 1990 || $year > $currentYear + 1) {
+            return null;
+        }
+
+        if (!checkdate($month, $day, $year)) {
+            return null;
+        }
+
+        return sprintf('%04d-%02d-%02d 00:00:00', $year, $month, $day);
     }
 
     private function resolveUrl(string $baseUrl, string $relativeOrAbsoluteUrl): string
@@ -546,7 +588,7 @@ class CrawlerService
             }
 
             // Extract and parse date
-            $publishedAt = date('Y-m-d H:i:s');
+            $publishedAt = null;
             if (!empty($selectors['date'])) {
                 $dateElements = $this->filterWithEnhancedSelectors($articleNode, $selectors['date']);
                 if ($dateElements->count() > 0) {
@@ -628,6 +670,15 @@ class CrawlerService
                         }
                     }
                 }
+            }
+
+            // Fall back to a date embedded in the article URL (e.g. /2025/06/30/slug)
+            if ($publishedAt === null) {
+                $publishedAt = $this->extractDateFromUrl($url);
+            }
+
+            if ($publishedAt === null) {
+                $publishedAt = date('Y-m-d H:i:s');
             }
 
             // Fetch full content (optional - could be done later) :: stick to summary as the link will be used to fetch the full content
